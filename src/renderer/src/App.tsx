@@ -1,0 +1,86 @@
+import React, { useEffect, useCallback } from 'react'
+import { Topbar } from './components/Topbar'
+import { Sidebar } from './components/Sidebar'
+import { ChatPane } from './components/ChatPane'
+import { Composer } from './components/Composer'
+import { DisconnectBanner } from './components/DisconnectBanner'
+import { EStopButton } from './components/EStopButton'
+import { CommandLockBanner } from './components/CommandLockBanner'
+import { useSessionStore } from './store/sessionStore'
+import { useMotorStore } from './store/motorStore'
+import { useCommandLock } from './store/commandLockStore'
+
+let _pendingToolCall: { name: string; args: Record<string, unknown> } | null = null
+export function setPendingToolCall(n: string, a: Record<string, unknown>) { _pendingToolCall = { name: n, args: a } }
+export function consumePendingToolCall() { const pc = _pendingToolCall; _pendingToolCall = null; return pc }
+
+const App: React.FC = () => {
+  const { disconnectMessage, connected, applyEvent } = useMotorStore()
+  const inflight = useSessionStore(s => s.inflight)
+  const lock = useCommandLock()
+
+  useEffect(() => {
+    const u1 = window.api.onBackendEvent(e => {
+      applyEvent(e)
+      // Release lock when command execution completes
+      if (e.type === 'executed') lock.unlock()
+    })
+    const u2 = window.api.onLlmEvent(e => {
+      if (e.type === 'tool_call') {
+        // Check lock — only one pending command at a time
+        if (lock.status !== 'idle') {
+          useSessionStore.getState().applyLlmEvent({ type: 'text', content: '当前存在未确认的硬件操作，请等待处理' })
+          return
+        }
+        if (e.toolName === 'get_status') {
+          window.api.sendCommand('get_status', e.arguments).then(r =>
+            useSessionStore.getState().applyLlmEvent({ type: 'text', content: `>> ${r}` })
+          ).catch(console.error)
+        } else {
+          lock.lock(`call_${e.toolName}_${Date.now()}`)
+          setPendingToolCall(e.toolName, e.arguments)
+        }
+      } else { useSessionStore.getState().applyLlmEvent(e) }
+    })
+    return () => { u1(); u2() }
+  }, [applyEvent, lock])
+
+  // Start backend ONCE (no auto-connect)
+  useEffect(() => { window.api.disconnect() /* ensure no auto */ }, [])
+
+  useEffect(() => { window.api.listSessions().then(l => useSessionStore.getState().hydrate(l)).catch(console.error) }, [])
+
+  const handleSend = useCallback((text: string) => {
+    if (lock.status !== 'idle') return
+    const st = useSessionStore.getState(); let cid = st.currentId
+    if (!cid) { cid = st.createSession(); st.selectSession(cid) }
+    st.pushUserMessage(text)
+    window.api.sendMessage(text, st.sessions[cid]?.messages || []).catch(console.error)
+  }, [lock.status])
+
+  // Ctrl+C
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === 'c' && inflight) { e.preventDefault(); window.api.interrupt().catch(console.error); lock.unlock() }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [inflight, lock])
+
+  return (
+    <div className="h-full flex flex-col" style={{ background: '#0a1628' }}>
+      <Topbar />
+      {lock.status !== 'idle' && <CommandLockBanner />}
+      {disconnectMessage && !connected && <DisconnectBanner />}
+      <div className="flex-1 flex overflow-hidden">
+        <Sidebar />
+        <div className="flex-1 flex flex-col min-w-0">
+          <ChatPane />
+          <Composer onSend={handleSend} disabled={inflight || lock.status !== 'idle'} locked={lock.status !== 'idle'} />
+        </div>
+      </div>
+      <EStopButton onEStop={() => lock.unlock()} />
+    </div>
+  )
+}
+export default App

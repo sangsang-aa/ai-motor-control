@@ -1,0 +1,63 @@
+{
+  "name": "ai-motor-control",
+  "version": "1.0.0",
+  "description": "AI 电驱控制系统 — LLM 自然语言电机控制终端",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "node build.mjs && electron .",
+    "build": "node build.mjs",
+    "preview": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "dependencies": {
+    "yaml": "^2.7.0"
+  },
+  "devDependencies": {
+    "@electron-toolkit/preload": "^3.0.1",
+    "@electron-toolkit/utils": "^3.0.0",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "echarts": "^5.6.0",
+    "electron": "^33.3.1",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^2.3.0",
+    "postcss": "^8.4.49",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.2",
+    "zustand": "^4.5.5"
+  },
+  "build": {
+    "appId": "com.ai-motor-control.app",
+    "productName": "AI电驱控制系统",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "python_backend",
+        "to": "python_backend"
+      }
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ]
+    },
+    "linux": {
+      "target": [
+        { "target": "AppImage", "arch": ["arm64"] }
+      ]
+    },
+    "portable": {
+      "artifactName": "AI电驱控制系统-ARM-${version}-portable.${ext}"
+    }
+  }
+}
