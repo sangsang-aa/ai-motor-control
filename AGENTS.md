@@ -1,98 +1,74 @@
-# AI电驱控制系统 — AGENTS.md
+# AGENTS.md — AI电驱控制系统
 
-Electron 双窗口桌面应用 (主窗口 + 独立监控窗口) + Python 串口子进程。
+Electron 双窗口 + Python 串口子进程。
 
-## 构建 & 运行
-
-```bash
-npm install                     # 安装依赖
-./run.sh                        # 一键：检查依赖 → 构建 → 启动
-# 或分步：
-node build.mjs                  # 构建（四个入口：main + preload + 2 个 renderer）
-./node_modules/electron/dist/electron .  # 启动
-```
-
-**`build.mjs` 是关键构建入口**。不使用 `electron-vite dev`——本机 rollup native binary segfault（`bus error`）。全部改用 esbuild bundle，Tailwind CSS 通过 `npx tailwindcss` CLI 编译。
-
-## 架构
-
-```
-主窗口 (AI Motor Control)          监控窗口 (Motor Monitor) — 独立 BrowserWindow
-├── Topbar [串口] [波特率] [连接]    ├── 状态栏
-├── Sidebar ──电机监控──▶ 打开窗口    ├── ECharts 转速曲线
-├── ChatPane + ConfirmCard           └── ECharts 电流曲线
-└── Composer + EStop
-
-src/main/index.ts     → 创建两个 BrowserWindow + 生命周期
-src/main/ipc.ts       → IPC handlers + 广播 motor:event 到两个窗口
-src/main/pythonBridge.ts → spawn Python 子进程 + stdin/stdout JSON Lines
-                            构造函数接受 emit 回调（广播到多窗口），不直接持有 BrowserWindow
-src/renderer/motor.html → 监控窗口入口
-src/renderer/index.html → 主窗口入口
-```
-
-## 构建细节（Agent 必须知道）
-
-- **两个 renderer 入口**：`renderer.js`（主窗口）+ `motor.js`（监控窗口）。`copyHtml()` 负责替换 HTML 中的 script 引用。
-- **build.mjs 是纯 JS**（不是 TS）。`.mjs` 中不能有类型注解、`!` 非空断言——这些都会导致 SyntaxError。
-- **Tailwind 不能用 `@apply` 引用自定义颜色**：`@apply bg-bg-input` 在 Tailwind v3 `@apply` 中不识别嵌套自定义颜色。全部用原始 CSS 属性代替 `@apply`，只对标准 utility class 用 `@apply`。
-- **权限问题**：`tailwindcss`、`electron-vite` 等 `node_modules/.bin/` 下的 symlink 目标可能缺少执行权限，需 `chmod +x`。
-- **需要 `libasound2t64`**（Ubuntu 24.04+ 改名），不是 `libasound2`。
-- **`conc/` 目录**：报告输出目录，`python_backend/report.py` 会自动创建。
-
-## IPC 通道
-
-| 通道 | 方向 | 用途 |
-|---|---|---|
-| `motor:startBackend` | Invoke | 启动 Python 后端 |
-| `motor:stopBackend` | Invoke | 停止后端 |
-| `motor:reconnect(port,baud)` | Invoke | 用新端口/波特率重连 |
-| `motor:sendCommand(action,payload)` | Invoke | 下发硬件指令 |
-| `motor:requestStatus` | Invoke | 查询连接状态 |
-| `motor:openWindow` | Invoke | 打开监控窗口 |
-| `motor:event` | Event | 遥测/串口状态（广播到两个窗口） |
-| `llm:sendMessage(text,history)` | Invoke | 发送 LLM 消息 |
-| `llm:event` | Event | LLM 流式事件 |
-| `llm:listSessions` / `:deleteSession` | Invoke | 会话管理 |
-| `export:generateReport` | Invoke | 导出 HTML 报告 |
-
-## Python 后端
+## 构建
 
 ```bash
-# 子进程启动参数（从 motor_config.yaml 读取）
-python3 python_backend/main.py --port /dev/ttyUSB0 --baud 150000 --rpm-limit 6000
+npm install              # 首次
+node build.mjs           # 构建 4 个入口: main + preload + 2 renderer
+./run.sh                 # 一键启动（含依赖检查）
 ```
 
-JSON Lines over stdin/stdout。`pythonBridge.ts` 的 `sendCommand()` 用 `stdout.on('data')` 侦听响应——与 readline 接口可能存在竞争（readline 也消费 stdout），但通常先到先得。
+## 构建陷阱
 
-**配置读取**：主进程 `config.ts` 用 `yaml` 库的 `parse()` 解析 YAML，**不要手写解析器**——手写版本不处理行内 `#` 注释，导致 `baud_rate` 值变成 `"150000          # 注释..."`。
+- **不能用 `electron-vite`**：本机 rollup native binary segfault（`bus error`）。唯一构建方式：`node build.mjs`（纯 esbuild）。
+- **`build.mjs` 是纯 JS 不是 TS**：不能有类型注解（`:string`）、`!` 非空断言——全部 SyntaxError。
+- **双 renderer 入口**：`renderer.js`→主窗口、`motor.js`→监控窗口。`copyHtml()` 负责替换 HTML 中 script 引用路径。
+- **`npx tailwindcss` 权限**：`node_modules/.bin/` 下 symlink 目标可能缺执行权限，需 `chmod +x`。
+- **Tailwind `@apply` 不认自定义颜色**：`@apply bg-bg-input` 在 Tailwind v3 中失败。自定义颜色全用原始 CSS（`background:#0d1f35`），只用 `@apply` 标准 utility（`flex`、`text-sm`、`rounded-lg`）。
 
-`SerialLink` 只有 `send_command(speed, motor_on)` 方法，**没有 `send()`**。工具执行时必须调 `send_command()`。
+## 架构关键点
+
+- **双窗口**：`index.ts` 创建主窗口 + `openMotorWindow()` 创建独立监控窗口。IPC 中 `motor:event` 广播到两个窗口。
+- **pythonBridge** 构造函数接受 emit 回调函数（不直接持有 BrowserWindow），以便广播到多窗口。
+- **config.ts 用 `yaml` 库的 `parse()`**——手写 YAML 解析器不剥 `#` 行内注释，会把 `150000  # 注释` 当成值传给 Python `--baud` 导致崩溃。
+- **`SerialLink` 只有 `send_command(speed, motor_on)`**，没有 `send()`。`tools.py` 必须用 `link.send_command()`。
+
+## 持久化与中断
+
+- **防抖自动保存**：`sessionManager.touch()` 延迟 1s 写盘。前端 `sessionStore.saveToDisk()` 在每次消息变更后触发。
+- **启动恢复**：`SessionManager.ensureDefault()` 文件为空时自动创建空白会话。
+- **Ctrl+C 中断链路**：`App.tsx` keydown → `llm:interrupt` IPC → `llmProxy.abort()`（AbortController 取消 HTTP 流）+ `pythonBridge.interrupt()`（写 `{"type":"interrupt"}` 到 Python stdin）。
+- **get_status 自动执行**：`App.tsx` 收到 `tool_call` 事件时直接 `sendCommand()`，不弹确认卡。
+
+## IPC 新增通道（易漏）
+
+| 通道 | 用途 |
+|---|---|
+| `motor:reconnect(port,baud)` | stop + start 后端换端口 |
+| `motor:openWindow` / `:closeWindow` | 监控弹窗 |
+| `llm:interrupt` | 中断 LLM |
+| `llm:renameSession(id,title)` | 重命名 |
+| `session:save(session)` | 持久化同步 |
+
+`motor:event` 广播到主窗口和监控窗口；监控窗口关闭时 `index.ts` 发 `chart_closed` 事件。
 
 ## 组件约束
 
-- **无 emoji**：系统没有 emoji 字体，所有 emoji 已替换为 CSS 样式（彩色圆点）或 HTML 实体（`&#9888;`）。
-- **Tailwind 颜色全用原始 CSS**：`btn-primary { background:#00a8ff; }` 而非 `@apply bg-accent`。只有标准 utility（`flex`、`rounded-lg`、`text-sm`）用 `@apply`。
-- **EStop 按钮位置**：`bottom:90px`（高于 Composer，不与发送按钮重叠）。
-- **get_status 自动执行**：`App.tsx` 的 LLM 事件处理中，`get_status` 工具调 `sendCommand()` 直发，不弹确认卡。
-
-## 测试
-
-```bash
-# Python 后端独立测试（无硬件）
-echo '{"type":"command","action":"set_speed","payload":{"rpm":3000}}' | python3 python_backend/main.py
-
-# 原 mcb_host 协议测试
-python3 linux/tests/test_protocol.py
-```
-
-无前端测试套件——GUI 需要完整 Electron 环境启动才能验证。
+- **无 emoji**：系统无 emoji 字体。所有 emoji 已替换为 CSS 圆点/颜色/HTML 实体。
+- **EStop 按钮** `bottom:90px`（高于 Composer 避免与发送按钮重叠）。
+- **Tailwind 颜色全用原始 CSS**：`background:#00a8ff` 而非 `@apply bg-accent`。
+- **`report` 按钮在 Sidebar** 不在 Topbar。Sidebar 还支持 hover 重命名（✎）和删除（✕）。
 
 ## 系统依赖
 
 ```bash
-sudo apt install -y libnss3 libnspr4 libasound2t64  # Ubuntu 24.04+
-sudo usermod -aG dialout $USER                        # 串口权限
+sudo apt install -y libnss3 libnspr4 libasound2t64   # ← 24.04+ 改名，不是 libasound2
+sudo usermod -aG dialout $USER
 ```
 
-`config/llm_config.yaml` 需手动填入阿里云百炼 API Key。无 API Key 时 GUI 正常显示，LLM 对话报错。
+## 测试
+
+```bash
+echo '{"type":"command","action":"set_speed","payload":{"rpm":3000}}' | python3 python_backend/main.py
+python3 linux/tests/test_protocol.py
+```
+
+## 打包
+
+```bash
+./package.sh   # → ai_motor_control_portable_YYYYMMDD.tar.gz
+```
+
+压缩包含 `out/` 构建产物 + 源码 + Electron 运行时，不含 `node_modules`（需 `npm install` 后重建）。
