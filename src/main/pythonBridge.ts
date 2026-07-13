@@ -1,8 +1,6 @@
 import { ChildProcess, spawn } from 'child_process'
-import { BrowserWindow } from 'electron'
 import { createInterface } from 'readline'
 import { join } from 'path'
-import { AppConfig } from './config'
 import type { BackendEvent } from '../shared/types'
 
 const PYTHON_BACKEND = join(__dirname, '../../python_backend/main.py')
@@ -10,24 +8,37 @@ const PYTHON_BACKEND = join(__dirname, '../../python_backend/main.py')
 export class PythonBackendController {
   private proc: ChildProcess | null = null
   private emitCb: (e: BackendEvent) => void
-  private status = { rpm: 0, current: 0, connected: false, port: '' as string }
+  private status = { rpm: 0, current: 0, connected: false, port: '', baudRate: 150000 }
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null
+  private missedPongs = 0
 
-  constructor(win: BrowserWindow, emit: (e: BackendEvent) => void) { this.emitCb = emit }
+  constructor(emit: (e: BackendEvent) => void) { this.emitCb = emit }
 
-  async start(cfg: AppConfig): Promise<void> {
-    if (this.proc) await this.stop()
-    const args = [PYTHON_BACKEND, '--port', cfg.motor.port, '--baud', String(cfg.motor.baudRate), '--rpm-limit', String(cfg.motor.rpmLimit)]
+  async start() {
+    if (this.proc) return
+    const args = [PYTHON_BACKEND, '--port', '/dev/ttyUSB0', '--baud', '150000', '--rpm-limit', '6000']
     this.proc = spawn('python3', args, { stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, PYTHONUNBUFFERED: '1' } })
     const rl = createInterface({ input: this.proc.stdout! })
     rl.on('line', (line: string) => { try { this.handle(JSON.parse(line)) } catch { /* */ } })
     this.proc.stderr?.on('data', (d: Buffer) => console.error('[py]', d.toString()))
-    this.proc.on('exit', (code) => this.emitCb({ type: 'error', message: `Python backend exited (code=${code})` }))
+    this.proc.on('exit', () => { this.stopHeartbeat(); this.emitCb({ type: 'error', message: 'Python backend exited' }) })
+    this.startHeartbeat()
   }
 
-  async stop(): Promise<void> {
+  async stop() {
+    this.stopHeartbeat()
     if (!this.proc) return; const p = this.proc; this.proc = null
     p.kill('SIGTERM'); await new Promise(r => setTimeout(r, 3000))
     if (p.exitCode === null) p.kill('SIGKILL')
+  }
+
+  // Manual connect/disconnect (user-initiated)
+  async connect(port: string, baud: number) {
+    if (!this.proc) await this.start()
+    this.proc?.stdin?.write(JSON.stringify({ type: 'command', action: 'connect', payload: { port, baud_rate: baud } }) + '\n')
+  }
+  async disconnect() {
+    this.proc?.stdin?.write(JSON.stringify({ type: 'command', action: 'disconnect', payload: {} }) + '\n')
   }
 
   async sendCommand(action: string, payload: Record<string, unknown>): Promise<string> {
@@ -45,6 +56,27 @@ export class PythonBackendController {
   }
 
   requestStatus() { return { ...this.status } }
-  interrupt() { if (this.proc?.stdin) this.proc.stdin.write(JSON.stringify({ type: 'interrupt' }) + '\n') }
-  private handle(e: BackendEvent) { if (e.type === 'serial_status') { this.status.connected = e.connected; this.status.port = e.port } else if (e.type === 'telemetry') { this.status.rpm = e.rpm; this.status.current = e.current }; this.emitCb(e) }
+  interrupt() { this.proc?.stdin?.write(JSON.stringify({ type: 'interrupt' }) + '\n') }
+
+  private startHeartbeat() {
+    this.missedPongs = 0
+    this.heartbeatTimer = setInterval(() => {
+      this.missedPongs++
+      if (this.missedPongs >= 2) {
+        this.emitCb({ type: 'error', message: 'Python backend unresponsive, restarting...' })
+        this.stop(); this.start()
+        return
+      }
+      this.proc?.stdin?.write(JSON.stringify({ type: 'ping' }) + '\n')
+    }, 5000)
+  }
+
+  private stopHeartbeat() { if (this.heartbeatTimer) { clearInterval(this.heartbeatTimer); this.heartbeatTimer = null } }
+
+  private handle(e: BackendEvent) {
+    if (e.type === 'serial_status') { this.status.connected = e.connected; this.status.port = e.port; if (e.baudRate) this.status.baudRate = e.baudRate }
+    else if (e.type === 'telemetry') { this.status.rpm = e.rpm; this.status.current = e.current }
+    else if (e.type === 'pong') { this.missedPongs = 0 }
+    this.emitCb(e)
+  }
 }

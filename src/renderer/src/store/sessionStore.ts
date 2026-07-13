@@ -22,15 +22,11 @@ interface SessionState {
 function saveToDisk(s: Session) { window.api.saveSession(s).catch(() => {}) }
 
 export const useSessionStore = create<SessionState>((set, get) => ({
-  sessions: {},
-  order: [],
-  currentId: null,
-  inflight: false,
+  sessions: {}, order: [], currentId: null, inflight: false,
 
   hydrate: (list) => {
-    const sessions: Record<string, Session> = {}
-    const order: string[] = []
-    for (const s of list) { sessions[s.id] = { ...s, messages: s.messages.map(m => ({ ...m, streaming: false })) }; order.push(s.id) }
+    const sessions: Record<string, Session> = {}; const order: string[] = []
+    for (const s of list) { sessions[s.id] = { ...s, status: 'idle' as const, messages: s.messages.map(m => ({ ...m, streaming: false })) }; order.push(s.id) }
     set({ sessions, order, currentId: order[0] || null })
   },
 
@@ -42,16 +38,12 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   deleteSession: (id) => {
-    set(st => { const { [id]: _, ...rest } = st.sessions; const order = st.order.filter(o => o !== id); const currentId = st.currentId === id ? (order[0] || null) : st.currentId; return { sessions: rest, order, currentId } })
+    set(st => { const { [id]: _, ...rest } = st.sessions; const order = st.order.filter(o => o !== id); return { sessions: rest, order, currentId: st.currentId === id ? (order[0] || null) : st.currentId } })
     window.api.deleteSession(id).catch(() => {})
   },
 
   renameSession: (id, title) => {
-    set(st => {
-      const s = st.sessions[id]; if (!s) return st
-      const updated = { ...s, title, updatedAt: Date.now() }
-      return { sessions: { ...st.sessions, [id]: updated } }
-    })
+    set(st => { const s = st.sessions[id]; if (!s) return st; const u = { ...s, title, updatedAt: Date.now() }; return { sessions: { ...st.sessions, [id]: u } } })
     window.api.renameSession(id, title).catch(() => {})
   },
 
@@ -72,13 +64,12 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const msgs = [...s.messages]
     if (event.type === 'text') {
       const last = msgs[msgs.length - 1]
-      if (last && last.role === 'assistant' && last.streaming) msgs[msgs.length - 1] = { ...last, content: last.content + event.content }
+      if (last?.role === 'assistant' && last.streaming) msgs[msgs.length - 1] = { ...last, content: last.content + event.content }
       else msgs.push({ id: genId(), role: 'assistant', content: event.content, ts: Date.now(), streaming: true })
     } else if (event.type === 'turn_end') {
-      const last = msgs[msgs.length - 1]
-      if (last && last.role === 'assistant') msgs[msgs.length - 1] = { ...last, streaming: false }
+      const last = msgs[msgs.length - 1]; if (last?.role === 'assistant') msgs[msgs.length - 1] = { ...last, streaming: false }
     } else if (event.type === 'error') {
-      msgs.push({ id: genId(), role: 'assistant', content: `⚠ ${event.message}`, ts: Date.now() })
+      msgs.push({ id: genId(), role: 'assistant', content: event.message.includes('API') ? '⚠ API 连接失败' : `⚠ ${event.message}`, ts: Date.now() })
     } else if (event.type === 'interrupted') {
       msgs.push({ id: genId(), role: 'system', content: '--- 操作已终止 ---', ts: Date.now() })
     }

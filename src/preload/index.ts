@@ -2,9 +2,8 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { BackendEvent, LlmEvent, MotorStatus, Session } from '../shared/types'
 
 const api = {
-  startBackend: (): Promise<void> => ipcRenderer.invoke('motor:startBackend'),
-  stopBackend: (): Promise<void> => ipcRenderer.invoke('motor:stopBackend'),
-  reconnect: (port: string, baud: number): Promise<void> => ipcRenderer.invoke('motor:reconnect', port, baud),
+  connect: (port: string, baud: number): Promise<void> => ipcRenderer.invoke('motor:connect', port, baud),
+  disconnect: (): Promise<void> => ipcRenderer.invoke('motor:disconnect'),
   sendCommand: (action: string, payload: Record<string, unknown>): Promise<string> => ipcRenderer.invoke('motor:sendCommand', action, payload),
   requestStatus: (): Promise<MotorStatus> => ipcRenderer.invoke('motor:requestStatus'),
   openMotorWindow: (): Promise<void> => ipcRenderer.invoke('motor:openWindow'),
@@ -25,5 +24,4 @@ const api = {
     ipcRenderer.on('llm:event', h); return () => ipcRenderer.removeListener('llm:event', h)
   }
 }
-
 contextBridge.exposeInMainWorld('api', api)
