@@ -1,0 +1,13 @@
+node_modules/
+out/
+release/
+dist/
+*.pyc
+__pycache__/
+.python-version
+.venv/
+*.log
+.DS_Store
+*.tar.gz
+*.zip
+
