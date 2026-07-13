@@ -1,194 +1,116 @@
 # AI 电驱控制系统
 
-LLM 自然语言电机控制终端。通过聊天界面与 AI 对话，用自然语言控制 TI F28069M LaunchPad 电机，实时监控转速与电流波形。
-
-## 系统要求
-
-| 项目 | 要求 |
-|---|---|
-| 操作系统 | Linux (Ubuntu 22.04+) 或 Windows 10+ |
-| Node.js | >= 18.x |
-| Python | >= 3.10 |
-| 串口权限 | 用户需加入 `dialout` 组 |
-| 显示 | X11 或 Wayland（GUI 需要） |
+LLM 自然语言电机控制终端。通过 AI 对话用自然语言控制 TI F28069M 电机，实时多通道波形监控。
 
 ## 快速开始
 
-### 1. 安装系统依赖
-
 ```bash
-# Ubuntu/Debian
-sudo apt update
+# 1. 安装系统依赖
 sudo apt install -y libnss3 libnspr4 libasound2t64 python3 python3-pip
+sudo usermod -aG dialout $USER   # 串口权限，需重新登录
 
-# 串口权限
-sudo usermod -aG dialout $USER
-# 注销重新登录生效
-```
-
-### 2. 安装项目依赖
-
-```bash
-cd ai_motor_control
-
-# Node.js 依赖
+# 2. 安装项目依赖
 npm install
-
-# Python 依赖
 pip install numpy pyserial
+
+# 3. 配置 LLM API Key
+#    编辑 config/llm_config.yaml → 填入阿里云百炼 API Key
+
+# 4. 启动
+./run.sh
 ```
 
-### 3. 配置 LLM API
-
-编辑 `config/llm_config.yaml`，填入阿里云百炼 API Key：
-
-```yaml
-base_url: "https://ws-4re9lk3au8wwdleg.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"
-api_key: "sk-xxxxxxxxxxxxxxxx"       # ← 改为你的真实 Key
-model_name: "qwen-plus"
-```
-
-### 4. 构建并启动
-
-```bash
-node build.mjs                       # 构建
-./node_modules/electron/dist/electron .   # 启动
-```
-
-> **网络问题？** 如果 `npm install` 超过 5 分钟，试试换国内镜像源：
-> ```bash
-> npm config set registry https://registry.npmmirror.com
-> ```
-
----
-
-## 界面说明
+## 界面布局
 
 ```
-┌──────────────────────────────────────────────────────┐
-│ Topbar  [连接状态]  [实时 RPM]  [电流]  [报告]          │
-├──────────┬───────────────────────────┬───────────────┤
-│ Sidebar  │  ChatPane                 │  MotorPanel   │
-│          │                           │  (可开关)      │
-│ + 新建   │  👋 欢迎使用               │               │
-│ 历史会话  │                           │  ╱‾‾‾╲ 转速    │
-│          │  [用户气泡]                │ ╱    ╲        │
-│ 📊 监控  │  [AI 气泡]                 │╱      ╲ 电流   │
-│          │  [确认卡片]                │               │
-│          ├───────────────────────────┤               │
-│          │ [输入框]           [发送]  │               │
-├──────────┴───────────────────────────┴───────────────┤
-│                                          [🛑 急停]    │
-└──────────────────────────────────────────────────────┘
+┌─ AI 电驱控制系统 ─ [端口] [波特率] [连接] ──── 转速 0 RPM  电流 0.00 A ─┐
+├─────────┬─────────────────────────────────────────────────────────────────┤
+│ Sidebar │ ChatPane                                                        │
+│         │                                                                 │
+│ + 新建  │ 💬 消息气泡 (用户右对齐 / AI 左对齐)                              │
+│ 会话列表 │ ⚠ 指令确认卡片 [确认执行] [忽略] (30s 超时)                    │
+│         │ ═ 锁定提示条 (存在待确认指令时)                                  │
+│ 打开监控 │                                                                 │
+│ 导出报告 │                                                                 │
+│         ├─────────────────────────────────────────────────────────────────┤
+│         │ [输入框]                                                  [发送] │
+└─────────┴─────────────────────────────────────────────────────────────────┘
+                                                              [急停] (右下角)
 ```
 
-### 主要功能
+## 核心功能
 
-**AI 对话控制电机**
-- 在输入框输入自然语言指令，如"把转速提高到 3000 转"
-- AI 会调用工具并展示确认卡片
-- 点击「✅ 确认执行」下发硬件指令，或「忽略」取消
+### 手动串口连接
+- 启动后不自动连接，由用户在 Topbar 手动操作
+- 未连接时：可编辑端口和波特率（支持自由文本输入 + 预设建议列表）
+- 连接后：端口和波特率锁定为只读，必须先断开再修改
+- LLM 被禁止修改波特率
 
-**急停按钮**
-- 右下角红色🛑按钮，随时点击立即停机（转速归零 + 电机停止）
-- 无需 LLM 确认，直接生效
+### 指令确认与锁定 (CommandLock)
+- LLM 发起工具调用后，进入 `pending` 锁定状态
+- 锁定期间：输入框禁用 + 顶部显示黄色提示条 + 无法发送新消息
+- 点击"确认执行"→ 进入 `executing` → 后端执行完自动释放
+- 点击"忽略"或 30 秒超时 → 立即释放
+- 急停按钮强制清除所有锁定
 
-**串口连接**
-- Topbar 显示连接状态：🟢 已连接 / 🔴 未连接
-- 未连接时显示提示："抱歉，没有检测到设备，请检查设备的连接情况！"
-- 连接后 3 秒自动重试
+### 全局中断 (Ctrl+C)
+- 随时按 Ctrl+C 终止 LLM 流式生成和正在执行的电机操作
+- 自动清除 inflight 状态和 commandLock
 
-**电机监控面板**
-- 点击侧栏「📊 电机监控」开关右侧面板
-- 实时显示转速波形 (0-6000 RPM) 和相电流波形
-- 关闭后停止渲染，节省性能
+### 独立图表窗口
+- 点击 Sidebar "打开监控窗口" → 弹出 1000×700 独立窗口
+- 多通道选择：勾选 Ia / Speed / Ib / Ic / Voltage，每个通道独立子图
+- 右侧控制面板可调整每个通道的 Y 轴量程 (min ~ max)
+- 暂停/继续刷新按钮，暂停时后台数据继续接收
+- 坐标轴完整显示（X 轴样本序号 + Y 轴数值 + 单位）
+- 取消勾选通道后图表立即移除，重新勾选即时恢复
 
-**会话管理**
-- 点击「+ 新建会话」开始新对话
-- 所有会话自动保存，重启后恢复
+### 会话管理
+- 自动持久化：每次消息变更 1 秒防抖写入 sessions.json
+- 启动恢复：自动加载历史会话，空文件自动创建默认会话
+- 重命名：hover 会话项 → 点击 ✎ 编辑标题
 
-**报告导出**
-- Topbar 右侧「报告」按钮导出当前会话的 HTML 报告
-- 包含统计信息（消息数、会话时长）和完整聊天记录
+### 报告导出
+- Sidebar "导出报告" → 生成 HTML 文件，包含统计数据和完整聊天记录
 
----
+### Python 后端心跳
+- 每 5 秒 ping → 3 秒内 pong，连续 2 次无响应自动杀进程重启
 
-## AI 能做什么
+## 架构
 
-| 工具 | 用途 | 示例 | 需确认 |
-|---|---|---|---|
-| `set_speed` | 设置转速 0~6000 RPM | "把转速调到三千转" | ✅ |
-| `set_motor_state` | 启动/停止电机 | "启动电机" | ✅ |
-| `get_status` | 查询当前状态 | "现在转速多少" | - (自动) |
-
-AI 不会执行操作，需要你在确认卡片上点击确认后才会下发至硬件。确认卡片 30 秒超时自动取消。
-
----
-
-## 配置文件
-
-**LLM 配置** `config/llm_config.yaml`:
-```yaml
-base_url: "https://..."        # API 地址（默认阿里云百炼）
-api_key: "sk-..."              # API Key
-model_name: "qwen-plus"        # 模型名称
-system_prompt: |               # AI 行为约束（一般无需改动）
-  你是一个电机控制助手...
+```
+Renderer (React) ←→ Preload (contextBridge) ←→ Main (Electron)
+                                                   │ spawn
+                                              Python Backend (多线程)
+                                              ├─ 主线程 (stdin 监听)
+                                              ├─ 串口线程 (独占 pyserial)
+                                              └─ 工具线程 (指令执行 + 超时保护)
 ```
 
-**电机配置** `config/motor_config.yaml`:
-```yaml
-port: "/dev/ttyUSB0"           # 串口设备路径
-baud_rate: 150000              # 波特率
-rpm_limit: 6000                # 转速上限
-current_alarm_threshold: 10.0  # 电流告警阈值 (A)
-```
+## 工具列表
 
----
+| 工具 | 参数 | 说明 |
+|---|---|---|
+| `set_speed` | rpm: 0~6000 | 设置转速 |
+| `set_motor_state` | on: true/false | 启动/停止 |
+| `get_status` | — | 查询状态 (自动执行，无需确认) |
 
-## 测试（无硬件）
+## FAQ
 
-无需连接电机硬件即可测试界面和 AI 对话：
-
-1. 填写 API Key 后启动程序
-2. Topbar 显示"未连接"（正常）
-3. 在聊天框输入"把转速调到 3000"
-4. AI 返回确认卡片，点击确认后会显示 `[模拟] 转速已设置为 3000 RPM（未连接硬件）`
-
-Python 后端单独测试：
-
-```bash
-cd python_backend
-echo '{"type":"command","action":"set_speed","payload":{"rpm":3000}}' | python3 main.py
-```
-
----
-
-## 常见问题
-
-**Q: 启动时报 `error while loading shared libraries: libnss3.so`**
+**启动报错 libnss3/libnspr4**
 ```bash
 sudo apt install -y libnss3 libnspr4 libasound2t64
 ```
 
-**Q: 串口连接失败**
+**串口权限不足**
 ```bash
-# 检查串口设备
-ls /dev/ttyUSB* /dev/ttyACM*
-# 检查权限
-groups $USER | grep dialout
-# 若不在 dialout 组
-sudo usermod -aG dialout $USER  # 然后重新登录
+sudo usermod -aG dialout $USER  # 重新登录生效
 ```
 
-**Q: 修改波特率后需要同步硬件**
-波特率改变后，需要重新烧录目标板固件使 `UserBaudRate` 匹配。
-
-**Q: 要打包成便携版**
+**构建报错 "Cannot find module esbuild"**
 ```bash
-npx electron-builder --dir
-# 输出在 release/ 目录
+npm install  # 首次需要安装构建依赖
 ```
 
-**Q: 可以换其他 LLM 吗**
-可以，支持任何 OpenAI 兼容 API。改 `config/llm_config.yaml` 中的 `base_url` 即可（如 DeepSeek、本地 vLLM 等）。
+**ARM 平台部署**
+参见 `ai_motor_control_arm/` 目录，config/README.txt 含 ARM 串口设备名对照。
