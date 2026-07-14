@@ -8,7 +8,7 @@ echo ""
 # Check system deps
 echo "[1/3] 检查系统依赖..."
 MISSING=""
-for lib in libnss3 libnspr4 libasound2t64; do
+for lib in libnss3 libnspr4 libasound2; do
   if ! dpkg -s "$lib" &>/dev/null; then
     MISSING="$MISSING $lib"
   fi

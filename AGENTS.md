@@ -54,7 +54,7 @@ node build.mjs           # 构建 4 个入口: main + preload + 2 renderer
 ## 系统依赖
 
 ```bash
-sudo apt install -y libnss3 libnspr4 libasound2t64   # ← 24.04+ 改名，不是 libasound2
+sudo apt install -y libnss3 libnspr4 libasound2   # ← 24.04+ 改名，不是 libasound2
 sudo usermod -aG dialout $USER
 ```
 
