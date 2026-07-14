@@ -30,7 +30,11 @@ const App: React.FC = () => {
         const s = store.currentId ? store.sessions[store.currentId] : null
         if (s) {
           const msgs = s.messages.filter(m => !(m.role === 'assistant' && m.streaming))
-          if (msgs.length !== s.messages.length) store.applyLlmEvent({ type: 'turn_end' })
+          if (msgs.length !== s.messages.length) {
+            // Apply a dummy message to trigger ChatPane re-render
+            store.applyLlmEvent({ type: 'text', content: '' })
+            store.applyLlmEvent({ type: 'turn_end' })
+          }
         }
         if (lock.status !== 'idle') {
           store.applyLlmEvent({ type: 'text', content: '当前存在未确认的硬件操作，请等待处理' })
