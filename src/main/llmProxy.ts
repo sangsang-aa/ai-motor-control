@@ -72,4 +72,4 @@ const TOOLS = [
   { type: 'function', function: { name: 'set_motor_state', description: '启动或停止电机', parameters: { type: 'object', properties: { on: { type: 'boolean' } }, required: ['on'] } } },
   { type: 'function', function: { name: 'get_status', description: '获取电机状态', parameters: { type: 'object', properties: {} } } }
 ]
-const DEFAULT_PROMPT = `你是一个电机控制助手。规则：只用 set_speed/set_motor_state/get_status 三个工具，禁止输出可执行代码，禁止建议修改波特率，转速 0~6000 RPM。中文回复。`
+const DEFAULT_PROMPT = `你是电机控制助手。用户发出控制请求时，直接调用工具，不要先回复文字确认。规则：只用 set_speed/set_motor_state/get_status 三个工具，禁止代码输出，禁止修改波特率，转速 0~6000 RPM。中文。`
