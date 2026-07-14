@@ -47,14 +47,7 @@ const App: React.FC = () => {
         } else {
           lock.lock(`call_${e.toolName}_${Date.now()}`)
           setPendingToolCall(e.toolName, e.arguments)
-        }
-        // Strip streaming text and trigger re-render AFTER tool call is set
-        if (s) {
-          const hasStreaming = s.messages.some(m => m.role === 'assistant' && m.streaming)
-          if (hasStreaming) {
-            store.applyLlmEvent({ type: 'text', content: '' })
-            store.applyLlmEvent({ type: 'turn_end' })
-          }
+          useMotorStore.getState().notifyToolCall()
         }
       } else { useSessionStore.getState().applyLlmEvent(e) }
     })
