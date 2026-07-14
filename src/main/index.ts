@@ -10,7 +10,7 @@ export function getMotorWindow() { return motorWindow }
 export function openMotorWindow(): BrowserWindow {
   if (motorWindow && !motorWindow.isDestroyed()) { motorWindow.focus(); return motorWindow }
   motorWindow = new BrowserWindow({
-    width: 900, height: 700, minWidth: 600, minHeight: 400,
+    width: 1000, height: 700, minWidth: 600, minHeight: 400,
     title: 'Motor Monitor',
     webPreferences: { preload: join(__dirname, '../preload/index.mjs'), contextIsolation: true, nodeIntegration: false, sandbox: false },
     backgroundColor: '#0a1628', show: false
