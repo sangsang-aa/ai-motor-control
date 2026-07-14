@@ -22,19 +22,23 @@ const App: React.FC = () => {
   useEffect(() => {
     const u1 = window.api.onBackendEvent(e => {
       applyEvent(e)
-      // Release lock when command execution completes
       if (e.type === 'executed') lock.unlock()
     })
     const u2 = window.api.onLlmEvent(e => {
       if (e.type === 'tool_call') {
-        // Check lock — only one pending command at a time
+        const store = useSessionStore.getState()
+        const s = store.currentId ? store.sessions[store.currentId] : null
+        if (s) {
+          const msgs = s.messages.filter(m => !(m.role === 'assistant' && m.streaming))
+          if (msgs.length !== s.messages.length) store.applyLlmEvent({ type: 'turn_end' })
+        }
         if (lock.status !== 'idle') {
-          useSessionStore.getState().applyLlmEvent({ type: 'text', content: '当前存在未确认的硬件操作，请等待处理' })
+          store.applyLlmEvent({ type: 'text', content: '当前存在未确认的硬件操作，请等待处理' })
           return
         }
         if (e.toolName === 'get_status') {
           window.api.sendCommand('get_status', e.arguments).then(r =>
-            useSessionStore.getState().applyLlmEvent({ type: 'text', content: `>> ${r}` })
+            store.applyLlmEvent({ type: 'text', content: `>> ${r}` })
           ).catch(console.error)
         } else {
           lock.lock(`call_${e.toolName}_${Date.now()}`)
@@ -45,9 +49,7 @@ const App: React.FC = () => {
     return () => { u1(); u2() }
   }, [applyEvent, lock])
 
-  // Start backend ONCE (no auto-connect)
-  useEffect(() => { window.api.disconnect() /* ensure no auto */ }, [])
-
+  // No auto-connect on startup
   useEffect(() => { window.api.listSessions().then(l => useSessionStore.getState().hydrate(l)).catch(console.error) }, [])
 
   const handleSend = useCallback((text: string) => {
@@ -58,10 +60,11 @@ const App: React.FC = () => {
     window.api.sendMessage(text, st.sessions[cid]?.messages || []).catch(console.error)
   }, [lock.status])
 
-  // Ctrl+C
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.key === 'c' && inflight) { e.preventDefault(); window.api.interrupt().catch(console.error); lock.unlock() }
+      if (e.ctrlKey && e.key === 'c' && (inflight || lock.status !== 'idle')) {
+        e.preventDefault(); window.api.interrupt().catch(console.error); lock.unlock()
+      }
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
