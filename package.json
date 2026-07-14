@@ -53,11 +53,11 @@
     },
     "linux": {
       "target": [
-        { "target": "AppImage", "arch": ["arm64"] }
+        "AppImage"
       ]
     },
     "portable": {
-      "artifactName": "AI电驱控制系统-ARM-${version}-portable.${ext}"
+      "artifactName": "AI电驱控制系统-${version}-portable.${ext}"
     }
   }
 }
