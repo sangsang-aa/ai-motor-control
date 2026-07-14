@@ -7,9 +7,11 @@ interface MotorState {
   currentHistory: number[]
   connected: boolean
   disconnectMessage: boolean
+  toolCallVersion: number
 
   applyEvent: (event: BackendEvent) => void
   updateStatus: (status: MotorStatus) => void
+  notifyToolCall: () => void
 }
 
 const MAX_HISTORY = 6000
@@ -27,6 +29,7 @@ export const useMotorStore = create<MotorState>((set, get) => ({
   currentHistory: [],
   connected: false,
   disconnectMessage: false,
+  toolCallVersion: 0,
 
   applyEvent: (event) => {
     if (event.type === 'serial_status') {
@@ -53,5 +56,6 @@ export const useMotorStore = create<MotorState>((set, get) => ({
     }
   },
 
-  updateStatus: (status) => set({ status })
+  updateStatus: (status) => set({ status }),
+  notifyToolCall: () => set(s => ({ toolCallVersion: s.toolCallVersion + 1 }))
 }))

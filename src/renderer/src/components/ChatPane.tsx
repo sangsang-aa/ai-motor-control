@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useSessionStore } from '../store/sessionStore'
+import { useMotorStore } from '../store/motorStore'
 import { ConfirmCard } from './ConfirmCard'
 import { consumePendingToolCall } from '../App'
 import { useCommandLock } from '../store/commandLockStore'
@@ -8,6 +9,7 @@ const TIMEOUT = 30000
 
 export const ChatPane: React.FC = () => {
   const { sessions, currentId, inflight } = useSessionStore()
+  const toolCallVersion = useMotorStore(s => s.toolCallVersion)
   const sr = useRef<HTMLDivElement>(null)
   const [pt, setPt] = useState<{ name: string; args: Record<string, unknown> } | null>(null)
   const [expired, setExpired] = useState(false)
@@ -22,7 +24,7 @@ export const ChatPane: React.FC = () => {
     const pc = consumePendingToolCall()
     if (pc) { setPt(pc); setExpired(false); tr.current = setTimeout(() => { setExpired(true); setPt(null); lock.unlock() }, TIMEOUT) }
     return () => { if (tr.current) clearTimeout(tr.current) }
-  }, [msgs.length])
+  }, [msgs.length, toolCallVersion])
 
   const confirm = async () => {
     if (!pt) return; if (tr.current) clearTimeout(tr.current)
