@@ -1,81 +1,86 @@
 # AGENTS.md — AI电驱控制系统
 
-Electron 双窗口 + Python 多线程串口子进程。x86 与 ARM 双架构独立维护。
+Electron 双窗口 + Python 多线程串口子进程。x86 (`main`) 与 ARM (`arm64`) 双分支。
 
 ## 构建
 
 ```bash
 npm install              # 首次 / git pull 后
 node build.mjs           # 4 入口: main + preload + renderer + motor
-./run.sh                 # 一键: 依赖检查 → 构建 → 启动
+./run.sh                 # 一键
 ```
 
 ## 构建陷阱
 
-- **不能用 `electron-vite`**：rollup native binary segfault (`bus error`)。唯一构建方式：`node build.mjs`（纯 esbuild bundle）。
-- **`build.mjs` 是纯 JS 不是 TS**：不能有类型注解、`!` 非空断言 → SyntaxError。
-- **Tailwind `@apply` 不认自定义颜色**：`@apply bg-bg-input` 失败。自定义颜色全用原始 CSS，只用 `@apply` 标准 utility。
-- **`npx tailwindcss` 权限**：`node_modules/.bin/` symlink 目标可能缺 `chmod +x`。
-- **双 renderer 入口**：`renderer.js`→主窗口、`motor.js`→监控窗口。
-- **`package-lock.json` 可能损坏**：`npm install` 报 `Invalid Version` → `rm package-lock.json && npm install`。
+- **不能用 `electron-vite`**：rollup native binary segfault。唯一构建：`node build.mjs`（纯 esbuild）。
+- **`build.mjs` 是纯 JS**：不能有类型注解、`!` 非空断言 → SyntaxError。
+- **Tailwind `@apply` 不认自定义颜色**：全部用原始 CSS，只用 `@apply` 标准 utility。
+- **`package-lock.json` 损坏**：`npm install` 报 `Invalid Version` → `rm package-lock.json && npm install`。
 
-## 架构要点
+## 架构
 
-- **手动连接（非自动）**：启动后不自动连接串口。`motor:connect(port,baud)` / `motor:disconnect` 由用户手动触发。连接后端口+波特率锁定。
-- **波特率是自由文本输入 + datalist**，不是 `<select>`。用户可输入任意数值。
-- **pythonBridge**：构造函数接受 emit 回调（不直接持有 BrowserWindow），`ipc.ts` 的 `broadcast()` 向两个窗口推送 `motor:event`。`motor:event` 是串口状态的**唯一事实源**。
-- **config.ts 用 `yaml` 库的 `parse()`**：手写解析器不剥 `#` 注释→`150000  # 注释` 当值传给 Python `--baud`→崩溃。
-- **`SerialLink` 只有 `send_command(speed, motor_on)`**，没有 `send()`。`tools.py` 必须调 `send_command()`。
-- **Python 后端多线程**：主线程(stdin 监听) + 串口线程(独占 pyserial) + 工具线程(Queue 通信, 5s 超时)。心跳每 5s ping/pong，2 次无响应自动重启。
+- **手动连接**：启动后不自动连串口。`motor:connect` / `motor:disconnect` 用户触发。连接后端口+波特率锁定。
+- **波特率是 `<input>` + `<datalist>`**，不是 `<select>`。
+- **pythonBridge**：emit 回调广播到两窗口。`motor:event` 是串口状态的唯一事实源。
+- **config.ts 用 `yaml` 库 `parse()`**：手写解析器不剥 `#` 注释→崩溃。
+- **`SerialLink` 只有 `send_command()`**，没有 `send()`。
+- **Python 后端多线程**：主线程 + 串口线程 + 工具线程(Queue, 5s 超时)。心跳 ping/pong。
 
-## CommandLock 指令锁（防竞态）
+## CommandLock + ConfirmCard 链条（易出 bug）
 
-- 三态：`idle` → `pending`(LLM 发起 toolCall) → `executing`(用户确认) → `idle`(完成/超时/忽略)
-- 锁定期间：Composer 禁用+遮罩；新 LLM 消息被拦截；顶部黄色 CommandLockBanner
-- 释放条件：执行完成(`motor:executed` 事件)、忽略、30s 超时、急停
-- 锁在 `commandLockStore.ts`，ChatPane/App.tsx/Composer 均引用
+1. `App.tsx` 收到 `tool_call` → `lock.lock()` → `setPendingToolCall()` → `notifyToolCall()`（触发 ChatPane 重渲染）
+2. ChatPane `useEffect([toolCallVersion])` → `consumePendingToolCall()` → `setPt()` → 渲染 ConfirmCard
+3. 点击确认 → `lock.setExecuting()` → `sendCommand`
+4. IPC 返回 `executed` → App.tsx `onBackendEvent` → `lock.unlock()`
+5. 点击忽略 / 30s 超时 / 急停 → 直接 `lock.unlock()`
 
-## IPC 通道（新增易漏项）
+**⚠️ 关键陷阱**：
+- `setPendingToolCall` **必须先于**任何会改变消息列表的操作（否则 ChatPane 检测时 tool call 还在队列外，ConfirmCard 不渲染）
+- `lock` 必须在 `useEffect` 依赖数组中，否则 `executed` 事件处理中拿到的是过期闭包
+- 系统提示词：`"直接调用工具，不要先回复文字确认"` — 避免 AI 先闲聊再调 tool 导致 Composer 被锁
 
-| 通道 | 替代 |
+## IPC 易漏项
+
+| 通道 | 说明 |
 |---|---|
-| `motor:connect(port,baud)` | 替代旧的 `startBackend`/`reconnect` |
-| `motor:disconnect` | 替代旧的 `stopBackend` |
-| `motor:executed`(Event) | 指令执行完成→释放 CommandLock |
-| `motor:event {type:'chart_closed'}` | 监控窗口关闭→主窗口同步 |
-| `llm:interrupt` | Ctrl+C → abort LLM + 清串口队列 |
+| `motor:connect(port,baud)` | 替代 `startBackend`/`reconnect` |
+| `motor:disconnect` | 替代 `stopBackend` |
+| `motor:executed`(Event) | 释放 CommandLock |
+| `llm:interrupt` | Ctrl+C → abort LLM |
+| `session:save` | 持久化同步 |
 
 ## 组件约束
 
-- **无 emoji**：系统无 emoji 字体，全部替换为 CSS/HTML 实体。
-- **EStop** `bottom:90px`（高于 Composer）。
-- **所有颜色用原始 CSS**：`background:#00a8ff`，不用 `@apply bg-accent`。
-- **ChartWindow**：1000×700 独立窗口，右侧控制面板(可滚动)含通道复选框 + 每通道量程输入框 + 暂停按钮。`ChartPanel` 组件独立管理 ECharts 生命周期。
+- **无 emoji**：全部 CSS/HTML 实体替代。
+- **EStop** `bottom:90px`。
+- **所有颜色用原始 CSS**：`background:#00a8ff`。
+- **ChartWindow**：1000×700 独立窗口，右侧面板(通道复选框+量程输入+暂停)，`ChartPanel` 独立 ECharts 生命周期。
 
-## 双架构
+## 双分支
 
 ```
-ai_motor_control/          → GitHub main 分支 (x86)
-ai_motor_control_arm/      → GitHub arm64 分支 (ARM)
+ai_motor_control/       → GitHub main (x86)
+ai_motor_control_arm/   → GitHub arm64 (ARM, libasound2 不是 libasound2t64)
 ```
 
-ARM 版源码相同，仅 `package.json` `arch: arm64` + `config/README.txt` 补充 ARM 串口设备名。
+两分支源码相同，差异仅在 `package.json` arch + ARM 串口设备名文档。
+
+## Git 注意
+
+- **`git pull` 覆盖未推送的新文件**（`CommandLockBanner.tsx`、`commandLockStore.ts` 等）→ 检查 + 手动恢复 + 立即 `git push`。
+- **ARM 同步**：`rsync -a src/ python_backend/ config/` 从 x86 到 ARM，然后 `sed -i 's/libasound2t64/libasound2/g'`。
 
 ## 系统依赖
 
 ```bash
-sudo apt install -y libnss3 libnspr4 libasound2t64   # Ubuntu 24.04+，不是 libasound2
+sudo apt install -y libnss3 libnspr4 libasound2t64   # x86, 24.04+
+sudo apt install -y libnss3 libnspr4 libasound2      # ARM
 sudo usermod -aG dialout $USER
 ```
 
-## 测试 & 打包
+## 测试
 
 ```bash
 echo '{"type":"command","action":"set_speed","payload":{"rpm":3000}}' | python3 python_backend/main.py
 python3 linux/tests/test_protocol.py
-./package.sh   # → ai_motor_control_portable_YYYYMMDD.tar.gz
 ```
-
-## Git 注意
-
-`git pull` 可能覆盖未推送的本地新文件（如 `CommandLockBanner.tsx`、`commandLockStore.ts`）。pull 后若报 `Cannot find module` → 检查文件是否被覆盖，手动恢复后 `git push`。
