@@ -20,7 +20,8 @@ export const Topbar: React.FC = () => {
 
   return (
     <header className="topbar">
-      <h1 className="topbar-brand" style={{minWidth:140}}>AI 电驱控制系统</h1>
+      <img src="./MOTOTUNE.png" alt="" style={{height:28,marginRight:8}} />
+      <h1 className="topbar-brand" style={{minWidth:120}}>MOTOTUNE</h1>
       <div className="flex items-center gap-2 ml-6 text-xs">
         <span className={`topbar-indicator ${connected?'on':'off'}`} />
         <span className="text-fg-muted" style={{minWidth:48}}>{connected?'已连接':'未连接'}</span>

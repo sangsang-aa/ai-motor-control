@@ -42,4 +42,7 @@ bundleJs('src/renderer/src/main.tsx', 'renderer.js')
 bundleJs('src/renderer/src/motor.tsx', 'motor.js')
 copyHtml('src/renderer/index.html', './src/main.tsx', './renderer.js')
 copyHtml('src/renderer/motor.html', './motor.js', './motor.js')
+// Copy static assets
+import { copyFileSync } from 'fs'
+try { copyFileSync(join(__dirname, 'src/renderer/src/MOTOTUNE.png'), join(OUT, 'MOTOTUNE.png')) } catch {}
 console.log('[build] done')
