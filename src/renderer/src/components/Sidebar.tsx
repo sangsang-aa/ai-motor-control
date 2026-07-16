@@ -35,7 +35,7 @@ export const Sidebar: React.FC = () => {
         })}
       </nav>
       <div className="p-2 border-t border-line space-y-1">
-        <button onClick={() => window.api.openMotorWindow().catch(console.error)} className="sidebar-nav-item">打开监控窗口</button>
+        <button onClick={() => window.api.openMotorWindow().catch(console.error)} className="sidebar-nav-item">示波器</button>
         <button onClick={() => window.api.generateReport().then(p => { if(p) window.open('file://'+p) }).catch(console.error)} className="sidebar-nav-item">导出报告</button>
       </div>
     </aside>
