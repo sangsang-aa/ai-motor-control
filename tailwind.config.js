@@ -50,7 +50,16 @@ module.exports = {
           current: '#ff9500',  // current chart line
           grid: 'rgba(255,255,255,0.06)',
           text: '#556677'
-        }
+        },
+        surface: '#121e33',
+        'scope-ch1': '#ff6b6b',
+        'scope-ch2': '#4ecdc4',
+        'scope-ch3': '#45b7d1',
+        'scope-ch4': '#f9ca24',
+        'scope-ch5': '#6c5ce7',
+        'scope-ch6': '#a29bfe',
+        'scope-ch7': '#00b894',
+        'scope-ch8': '#e17055',
       },
       fontFamily: {
         sans: [
