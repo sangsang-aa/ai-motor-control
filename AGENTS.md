@@ -1,4 +1,4 @@
-# AGENTS.md — AI电驱控制系统
+# AGENTS.md — MOTOTUNE
 
 Electron 双窗口 + Python 多线程串口子进程。x86 (`main`) / ARM (`arm64`) 双分支。示波器来自 `motra/scope-standalone`。
 
@@ -16,6 +16,7 @@ node build.mjs           # 4 入口: main + preload + renderer + motor
 - **`build.mjs` 是纯 JS**：不能有类型注解/`!` 非空断言 → SyntaxError。
 - **Tailwind `@apply` 不认自定义颜色**：全部原始 CSS，只用 `@apply` 标准 utility。
 - **`package-lock.json` 损坏**：`npm install` 报 `Invalid Version` → `rm package-lock.json && npm install`。
+- **`build.mjs` 会复制 `MOTOTUNE.png`** 到 `out/renderer/`。
 
 ## 架构
 
@@ -49,7 +50,7 @@ node build.mjs           # 4 入口: main + preload + renderer + motor
 
 - **无 emoji**：CSS/HTML 实体替代。**EStop** `bottom:90px`。**颜色全用原始 CSS**。
 - **Sidebar**：可拖拽宽度(160-400px)，右上角 ◀ 折叠为 36px 图标栏，工具栏分组在"新建会话"下方。
-- **Topbar**：端口/波特率前有标签文字，纯手动输入。
+- **Topbar**：CSS 渐变文字 **MOTOTUNE** 品牌，端口/波特率前有标签，纯手动输入。
 
 ## 双分支
 
