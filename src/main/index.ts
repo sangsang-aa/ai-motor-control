@@ -1,6 +1,8 @@
 import { app, BrowserWindow } from 'electron'
 import { join } from 'path'
 
+app.disableHardwareAcceleration()
+
 let mainWindow: BrowserWindow | null = null
 let motorWindow: BrowserWindow | null = null
 
@@ -16,6 +18,7 @@ export function openMotorWindow(): BrowserWindow {
     backgroundColor: '#0a1628', show: false
   })
   motorWindow.on('ready-to-show', () => motorWindow?.show())
+  setTimeout(() => { if (motorWindow && !motorWindow.isDestroyed() && !motorWindow.isVisible()) motorWindow.show() }, 3000)
   motorWindow.on('closed', () => {
     motorWindow = null
     const mw = getMainWindow()
@@ -33,6 +36,7 @@ function createMainWindow(): void {
     backgroundColor: '#0a1628', show: false
   })
   mainWindow.on('ready-to-show', () => mainWindow?.show())
+  setTimeout(() => { if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) mainWindow.show() }, 3000)
   mainWindow.on('closed', () => { mainWindow = null })
   mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
 }

@@ -33,4 +33,4 @@ echo "[3/3] 构建 & 启动..."
 echo ""
 
 node build.mjs
-exec ./node_modules/electron/dist/electron .
+exec ./node_modules/electron/dist/electron . --no-sandbox
