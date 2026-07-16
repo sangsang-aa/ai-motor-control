@@ -40,7 +40,7 @@ export const ChatPane: React.FC = () => {
     <div className="flex-1 flex flex-col min-h-0">
       <div ref={sr} className="chat-scroll">
         {msgs.length === 0 && !inflight && (
-          <div className="welcome"><div className="ico">M</div><div className="t">MOTOTUNE</div><div className="h">您好，今天要干什么？</div></div>
+          <div className="welcome"><div className="t" style={{fontSize:32,fontWeight:800,letterSpacing:'0.08em'}}>MOTOTUNE</div><div className="h" style={{fontSize:16,marginTop:12}}>您好，今天要干什么？</div></div>
         )}
         {msgs.map(m => <div key={m.id} className={`msg-row ${rc(m.role)}`}><div className={`msg-bbl ${rc(m.role)}`}>{m.content}{m.streaming && <span className="stream-dot" />}</div></div>)}
         {pt && !expired && <ConfirmCard toolName={pt.name} arguments={pt.args} onConfirm={confirm} onIgnore={ignore} timeout={TIMEOUT} />}
