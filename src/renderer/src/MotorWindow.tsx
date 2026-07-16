@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState, useCallback } from 'react'
 import ScopeChart from './components/ScopeChart'
 import ChannelPanel from './components/ChannelPanel'
 import { useScopeStore } from './store/scopeStore'
@@ -8,6 +8,22 @@ const MotorWindow: React.FC = () => {
   const { rpmHistory, currentHistory, status, connected } = useMotorStore()
   const applyFrame = useScopeStore(s => s.applyFrame)
   const lastFedLen = useRef(0)
+  const [panelW, setPanelW] = useState(280)
+  const dragging = useRef(false)
+
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    dragging.current = true
+    const startX = e.clientX
+    const startW = panelW
+    const onMove = (ev: MouseEvent) => {
+      if (!dragging.current) return
+      setPanelW(Math.max(160, Math.min(500, startW + startX - ev.clientX)))
+    }
+    const onUp = () => { dragging.current = false; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }, [panelW])
 
   // Feed motorStore data into scopeStore as interleaved [Ia, Speed]
   useEffect(() => {
@@ -49,7 +65,11 @@ const MotorWindow: React.FC = () => {
         <div style={{ flex:1,minWidth:0 }}>
           <ScopeChart />
         </div>
-        <div style={{ width:200,flexShrink:0,borderLeft:'1px solid #1e3454',background:'#111d32',overflowY:'auto' }}>
+        <div
+          onMouseDown={onMouseDown}
+          style={{ width:4,cursor:'col-resize',background:dragging.current?'#00a8ff':'#1e3454',flexShrink:0,transition:dragging.current?'none':'background 0.15s' }}
+        />
+        <div style={{ width:panelW,flexShrink:0,borderLeft:'1px solid #1e3454',background:'#111d32',overflowY:'auto' }}>
           <ChannelPanel />
         </div>
       </div>
