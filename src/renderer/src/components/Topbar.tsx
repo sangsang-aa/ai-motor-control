@@ -1,8 +1,6 @@
 import React from 'react'
 import { useMotorStore } from '../store/motorStore'
 
-const BAUD_PRESETS = ['150000','115200','5625000','921600','57600','9600']
-
 export const Topbar: React.FC = () => {
   const { connected, status } = useMotorStore()
   const [port, setPort] = React.useState(status.port || '/dev/ttyUSB0')
