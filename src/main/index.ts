@@ -28,7 +28,7 @@ export function openMotorWindow(): BrowserWindow {
 function createMainWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1400, height: 850, minWidth: 900, minHeight: 500,
-    title: 'AI Motor Control',
+    title: 'MOTOTUNE',
     webPreferences: { preload: join(__dirname, '../preload/index.mjs'), contextIsolation: true, nodeIntegration: false, sandbox: false },
     backgroundColor: '#0a1628', show: false
   })
