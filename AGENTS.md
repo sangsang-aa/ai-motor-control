@@ -16,7 +16,6 @@ node build.mjs           # 4 入口: main + preload + renderer + motor
 - **`build.mjs` 是纯 JS**：不能有类型注解/`!` 非空断言 → SyntaxError。
 - **Tailwind `@apply` 不认自定义颜色**：全部原始 CSS，只用 `@apply` 标准 utility。
 - **`package-lock.json` 损坏**：`npm install` 报 `Invalid Version` → `rm package-lock.json && npm install`。
-- **`build.mjs` 会复制 `MOTOTUNE.png`** 到 `out/renderer/`。
 
 ## 架构
 
