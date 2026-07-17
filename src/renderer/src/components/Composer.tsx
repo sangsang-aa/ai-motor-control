@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
+import { useSessionStore } from '../store/sessionStore'
+import { useCommandLock } from '../store/commandLockStore'
 
 interface Props { onSend: (text: string) => void; disabled?: boolean; locked?: boolean }
 
@@ -7,6 +9,11 @@ export const Composer: React.FC<Props> = ({ onSend, disabled, locked }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const send = () => { const t = text.trim(); if (!t || disabled || locked) return; onSend(t); setText('') }
   useEffect(() => { if (textareaRef.current) { textareaRef.current.style.height = 'auto'; textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px' } }, [text])
+
+  const forceCancel = () => {
+    useSessionStore.getState().setInflight(false)
+    useCommandLock.getState().unlock()
+  }
 
   return (
     <div className="composer-bar" style={{position:'relative'}}>
@@ -20,9 +27,13 @@ export const Composer: React.FC<Props> = ({ onSend, disabled, locked }) => {
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
           placeholder={locked ? '请先确认或取消当前电机控制指令' : '输入消息... (Enter 发送, Shift+Enter 换行)'}
           rows={1} className="input-base flex-1 resize-none min-h-[38px] max-h-[120px]" disabled={disabled || locked} />
-        <button onClick={send} disabled={disabled || locked || !text.trim()} className="btn-primary h-[38px] px-5 text-sm shrink-0">
-          {locked ? '锁定中' : disabled ? '...' : '发送'}
-        </button>
+        {disabled && !locked ? (
+          <button onClick={forceCancel} className="btn-danger h-[38px] px-5 text-sm shrink-0">取消</button>
+        ) : (
+          <button onClick={send} disabled={disabled || locked || !text.trim()} className="btn-primary h-[38px] px-5 text-sm shrink-0">
+            {locked ? '锁定中' : disabled ? '...' : '发送'}
+          </button>
+        )}
       </div>
     </div>
   )

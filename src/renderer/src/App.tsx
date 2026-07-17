@@ -73,6 +73,15 @@ const App: React.FC = () => {
     return () => document.removeEventListener('keydown', onKey)
   }, [inflight, lock])
 
+  useEffect(() => {
+    if (!inflight && lock.status === 'idle') return
+    const t = setTimeout(() => {
+      useSessionStore.getState().setInflight(false)
+      lock.unlock()
+    }, 30000)
+    return () => clearTimeout(t)
+  }, [inflight, lock.status])
+
   return (
     <div className="h-full flex flex-col" style={{ background: '#0a1628' }}>
       <Topbar />
