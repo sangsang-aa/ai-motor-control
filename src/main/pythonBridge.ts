@@ -11,8 +11,14 @@ export class PythonBackendController {
   private status = { rpm: 0, current: 0, connected: false, port: '', baudRate: 150000 }
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null
   private missedPongs = 0
+  private listeners: ((e: BackendEvent) => void)[] = []
 
   constructor(emit: (e: BackendEvent) => void) { this.emitCb = emit }
+
+  private removeListener(cb: (e: BackendEvent) => void) {
+    const idx = this.listeners.indexOf(cb)
+    if (idx >= 0) this.listeners.splice(idx, 1)
+  }
 
   async start() {
     if (this.proc) return
@@ -44,18 +50,19 @@ export class PythonBackendController {
   async sendCommand(action: string, payload: Record<string, unknown>): Promise<string> {
     if (!this.proc?.stdin) return 'backend not running'
     return new Promise(resolve => {
-      const onData = (d: Buffer) => {
-        for (const line of d.toString().trim().split('\n')) {
-          try { const ev = JSON.parse(line); if (ev.type === 'command_result') { this.proc?.stdout?.removeListener('data', onData); resolve(ev.result || 'OK'); return } } catch { /* */ }
+      const cb = (e: BackendEvent) => {
+        if (e.type === 'command_result') {
+          this.removeListener(cb)
+          resolve(e.result || 'OK')
         }
       }
-      this.proc?.stdout?.on('data', onData)
+      this.listeners.push(cb)
       this.proc!.stdin!.write(JSON.stringify({ type: 'command', action, payload }) + '\n')
-      setTimeout(() => { this.proc?.stdout?.removeListener('data', onData); resolve('timeout') }, 5000)
+      setTimeout(() => { this.removeListener(cb); resolve('timeout') }, 5000)
     })
   }
 
-  requestStatus() { return { ...this.status } }
+  requestStatus() { return { connected: this.status.connected, port: this.status.port, baudRate: this.status.baudRate, rpm: this.status.rpm, currentIa: this.status.current, alarmInfo: '' } }
   interrupt() { this.proc?.stdin?.write(JSON.stringify({ type: 'interrupt' }) + '\n') }
 
   private startHeartbeat() {
@@ -77,6 +84,7 @@ export class PythonBackendController {
     if (e.type === 'serial_status') { this.status.connected = e.connected; this.status.port = e.port; if (e.baudRate) this.status.baudRate = e.baudRate }
     else if (e.type === 'telemetry') { this.status.rpm = e.rpm; this.status.current = e.current }
     else if (e.type === 'pong') { this.missedPongs = 0 }
+    for (const cb of this.listeners) { try { cb(e) } catch {} }
     this.emitCb(e)
   }
 }

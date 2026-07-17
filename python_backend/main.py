@@ -31,66 +31,73 @@ class Backend:
     def _serial_worker(self) -> None:
         link: SerialLink | None = None
         while self._running:
-            try:
-                msg = self._serial_queue.get(timeout=0.2)
-                action = msg.get("action", "")
-                if action == "connect":
-                    port = str(msg.get("port", self.port))
-                    baud = int(msg.get("baud", self.baud))
-                    try:
+            # Drain all pending commands (non-blocking)
+            while True:
+                try:
+                    msg = self._serial_queue.get_nowait()
+                    action = msg.get("action", "")
+                    if action == "connect":
+                        port = str(msg.get("port", self.port))
+                        baud = int(msg.get("baud", self.baud))
+                        try:
+                            if link:
+                                try: link.close()
+                                except: pass
+                            link = SerialLink(SerialCfg(port=port, baud=baud))
+                            link.open()
+                            self._connected = True
+                            self._serial_result.put({"ok": True})
+                            self._emit({"type": "serial_status", "connected": True, "port": port, "baudRate": baud})
+                        except Exception as e:
+                            self._serial_result.put({"ok": False, "error": str(e)})
+                            self._emit({"type": "error", "message": str(e)})
+                            self._emit({"type": "serial_status", "connected": False, "port": ""})
+                    elif action == "disconnect":
                         if link:
                             try: link.close()
                             except: pass
-                        link = SerialLink(SerialCfg(port=port, baud=baud))
-                        link.open()
-                        self._connected = True
+                            link = None
+                        self._connected = False
                         self._serial_result.put({"ok": True})
-                        self._emit({"type": "serial_status", "connected": True, "port": port, "baudRate": baud})
-                    except Exception as e:
-                        self._serial_result.put({"ok": False, "error": str(e)})
-                        self._emit({"type": "error", "message": str(e)})
                         self._emit({"type": "serial_status", "connected": False, "port": ""})
-                elif action == "disconnect":
-                    if link:
-                        try: link.close()
-                        except: pass
-                        link = None
-                    self._connected = False
-                    self._serial_result.put({"ok": True})
-                    self._emit({"type": "serial_status", "connected": False, "port": ""})
-                elif action == "execute":
-                    func = msg.get("func")
-                    if func == "send_command":
-                        rpm = int(msg.get("rpm", 0)); on = int(msg.get("on", 0))
-                        if link and link.is_open:
-                            link.send_command(rpm, on)
-                            self._serial_result.put({"ok": True, "result": f"OK rpm={rpm} on={on}"})
-                        else:
-                            self._serial_result.put({"ok": False, "error": "not connected"})
-            except queue.Empty:
-                pass
-            except Exception as e:
-                self._serial_result.put({"ok": False, "error": str(e)})
-
-            # Poll frames if connected
-            if link and link.is_open:
-                try:
-                    frame = link.frames.get_nowait()
-                    speed_arr = frame[:, 1] if frame.shape[1] > 1 else frame[:, 0]
-                    current_arr = frame[:, 0]
-                    ls = float(speed_arr[-1]) if len(speed_arr) else 0.0
-                    lc = float(current_arr[-1]) if len(current_arr) else 0.0
-                    self._last_speed = ls
-                    with self._status_lock:
-                        self._status = {"rpm": ls, "current": lc}
-                    self._session.telemetry.append((time.time(), ls, lc))
-                    self._emit({"type": "telemetry", "rpm": ls, "current": lc,
-                        "seriesRpm": speed_arr.tolist() if hasattr(speed_arr,"tolist") else list(speed_arr),
-                        "seriesIa": current_arr.tolist() if hasattr(current_arr,"tolist") else list(current_arr)})
+                    elif action == "execute":
+                        func = msg.get("func")
+                        if func == "send_command":
+                            rpm = int(msg.get("rpm", 0)); on = int(msg.get("on", 0))
+                            if link and link.is_open:
+                                link.send_command(rpm, on)
+                                self._serial_result.put({"ok": True, "result": f"OK rpm={rpm} on={on}"})
+                            else:
+                                self._serial_result.put({"ok": False, "error": "not connected"})
                 except queue.Empty:
-                    pass
-                except Exception:
-                    pass
+                    break
+                except Exception as e:
+                    self._serial_result.put({"ok": False, "error": str(e)})
+
+            # Drain ALL available frames
+            if link and link.is_open:
+                while True:
+                    try:
+                        frame = link.frames.get_nowait()
+                        speed_arr = frame[:, 1] if frame.shape[1] > 1 else frame[:, 0]
+                        current_arr = frame[:, 0]
+                        ls = float(speed_arr[-1]) if len(speed_arr) else 0.0
+                        lc = float(current_arr[-1]) if len(current_arr) else 0.0
+                        self._last_speed = ls
+                        with self._status_lock:
+                            self._status = {"rpm": ls, "current": lc}
+                        self._session.telemetry.append((time.time(), ls, lc))
+                        self._emit({"type": "telemetry", "rpm": ls, "current": lc,
+                            "seriesRpm": speed_arr.tolist() if hasattr(speed_arr,"tolist") else list(speed_arr),
+                            "seriesIa": current_arr.tolist() if hasattr(current_arr,"tolist") else list(current_arr)})
+                    except queue.Empty:
+                        break
+                    except Exception:
+                        pass
+
+            # Idle sleep when nothing to do
+            if not (link and link.is_open):
+                time.sleep(0.1)
 
         if link:
             try: link.close()

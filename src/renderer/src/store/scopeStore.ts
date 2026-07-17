@@ -17,7 +17,7 @@ interface SerialCfgWire { port: string; baudRate: number; pktIntvUs: number; nPa
 interface SerialStatus { connected: boolean; port: string; baudRate: number; lastError: string }
 
 export const SAMPLE_TIME_S = 5e-5 // 与 mcb_host/config.py 一致
-export const DISPLAY_SAMPLES = 6000
+export const DISPLAY_SAMPLES = 4000
 export const N_SAMPLES_MIN = 2
 export const N_SAMPLES_MAX = 1_000_000
 export const HEX_BUFFER_BYTES = 4096
@@ -222,8 +222,8 @@ export const useScopeStore = create<ScopeState>((set, get) => ({
   showHex: false,
   ts: SAMPLE_TIME_S,
   n: DISPLAY_SAMPLES,
-  span: 0,
-  spanUnit: 'ms',
+  span: DISPLAY_SAMPLES * SAMPLE_TIME_S * 1e3,
+  spanUnit: 'ms' as SpanUnit,
   buffers: emptyBuffers(DISPLAY_SAMPLES, PANEL_CHANNEL_SLOTS),
   filled: 0,
   status: {
