@@ -53,7 +53,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const { currentId, sessions } = get(); if (!currentId) return
     const s = sessions[currentId]; if (!s) return
     const msg: Message = { id: genId(), role: 'user', content: text, ts: Date.now() }
-    const updated: Session = { ...s, updatedAt: Date.now(), status: 'running', messages: [...s.messages, msg] }
+    // Auto-name session from first user message
+    const title = (s.messages.length === 0 && s.title === '新会话') ? text.slice(0, 30) : s.title
+    const updated: Session = { ...s, title, updatedAt: Date.now(), status: 'running', messages: [...s.messages, msg] }
     set(st => ({ sessions: { ...st.sessions, [currentId]: updated }, inflight: true }))
     saveToDisk(updated)
   },

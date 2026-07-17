@@ -29,7 +29,7 @@ export const ChatPane: React.FC = () => {
   const confirm = async () => {
     if (!pt) return; if (tr.current) clearTimeout(tr.current)
     lock.setExecuting()
-    try { const r = await window.api.sendCommand(pt.name, pt.args); useSessionStore.getState().applyLlmEvent({ type: 'text', content: `>> ${r}` }) }
+    try { const r = await window.api.sendCommand(pt.name, pt.args); useSessionStore.getState().applyLlmEvent({ type: 'text', content: `${r}` }) }
     catch (e) { useSessionStore.getState().applyLlmEvent({ type: 'error', message: `执行失败: ${e}` }); lock.unlock() }
     setPt(null)
   }

@@ -40,7 +40,7 @@ const App: React.FC = () => {
         }
         if (e.toolName === 'get_status') {
           window.api.sendCommand('get_status', e.arguments).then(r =>
-            store.applyLlmEvent({ type: 'text', content: `>> ${r}` })
+            store.applyLlmEvent({ type: 'text', content: `${r}` })
           ).catch(console.error)
         } else {
           lock.lock(`call_${e.toolName}_${Date.now()}`)
