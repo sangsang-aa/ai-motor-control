@@ -47,18 +47,31 @@ export class PythonBackendController {
     this.proc?.stdin?.write(JSON.stringify({ type: 'command', action: 'disconnect', payload: {} }) + '\n')
   }
 
+  private removeListener(cb: (e: BackendEvent) => void) {
+    const idx = this.listeners.indexOf(cb)
+    if (idx >= 0) this.listeners.splice(idx, 1)
+  }
+
   async sendCommand(action: string, payload: Record<string, unknown>): Promise<string> {
-    if (!this.proc?.stdin) return 'backend not running'
+    if (!this.proc?.stdin) return 'serial backend not started — connect serial first'
     return new Promise(resolve => {
+      let resolved = false
       const cb = (e: BackendEvent) => {
+        if (resolved) return
         if (e.type === 'command_result') {
+          resolved = true
           this.removeListener(cb)
           resolve(e.result || 'OK')
         }
       }
       this.listeners.push(cb)
       this.proc!.stdin!.write(JSON.stringify({ type: 'command', action, payload }) + '\n')
-      setTimeout(() => { this.removeListener(cb); resolve('timeout') }, 5000)
+      setTimeout(() => {
+        if (resolved) return
+        resolved = true
+        this.removeListener(cb)
+        resolve('timeout')
+      }, 5000)
     })
   }
 
