@@ -388,7 +388,7 @@ export default function ChannelPanel() {
   const channels = useScopeStore((s) => s.channels)
 
   return (
-    <div className="w-64 overflow-y-auto bg-surface-light border-l border-surface-lighter shrink-0">
+    <div className="w-full h-full overflow-y-auto bg-surface-light shrink-0">
       {channels.map((ch, i) => (
         <ChannelRow key={i} ch={ch} idx={i} />
       ))}

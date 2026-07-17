@@ -53,7 +53,7 @@ export class LlmProxy {
           } catch { /* */ }
         }
       }
-      if (hasText) this.emit({ type: 'turn_end' })
+      this.emit({ type: 'turn_end' })
       for (const [, a] of toolsAcc) {
         try { this.emit({ type: 'tool_call', toolName: a.name, arguments: JSON.parse(a.arguments || '{}') }) }
         catch { this.emit({ type: 'tool_call', toolName: a.name, arguments: {} }) }

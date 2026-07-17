@@ -33,15 +33,22 @@ export const useMotorStore = create<MotorState>((set, get) => ({
 
   applyEvent: (event) => {
     if (event.type === 'serial_status') {
+      const disconnected = !event.connected
       set({
         connected: event.connected,
-        disconnectMessage: !event.connected,
-        status: { ...get().status, connected: event.connected, port: event.port }
+        status: {
+          ...get().status,
+          connected: event.connected,
+          port: event.port,
+          ...(disconnected ? { rpm: 0, currentIa: 0 } : {})
+        }
       })
     } else if (event.type === 'telemetry') {
       const state = get()
-      const rpmHistory = [...state.rpmHistory, event.rpm].slice(-MAX_HISTORY)
-      const currentHistory = [...state.currentHistory, event.current].slice(-MAX_HISTORY)
+      const newRpms = event.seriesRpm && event.seriesRpm.length > 0 ? event.seriesRpm : [event.rpm]
+      const newIas = event.seriesIa && event.seriesIa.length > 0 ? event.seriesIa : [event.current]
+      const rpmHistory = [...state.rpmHistory, ...newRpms].slice(-MAX_HISTORY)
+      const currentHistory = [...state.currentHistory, ...newIas].slice(-MAX_HISTORY)
       set({
         rpmHistory,
         currentHistory,

@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { useScopeStore, autoColor } from '../store/scopeStore'
+import { useScopeStore, autoColor, SAMPLE_TIME_S } from '../store/scopeStore'
 
 /** Padding inside the SVG (top, right, bottom, left) */
-const PAD = { top: 20, right: 160, bottom: 20, left: 60 }
+const PAD = { top: 20, right: 160, bottom: 36, left: 60 }
 
 /**
  * Format a number for display.
@@ -30,6 +30,8 @@ export default function ScopeChart() {
   const buffers = useScopeStore((s) => s.buffers)
   const n = useScopeStore((s) => s.n)
   const filled = useScopeStore((s) => s.filled)
+  const span = useScopeStore((s) => s.span)
+  const spanUnit = useScopeStore((s) => s.spanUnit)
 
   // ── ResizeObserver ──────────────────────────────────────
   useEffect(() => {
@@ -45,14 +47,10 @@ export default function ScopeChart() {
     return () => ro.disconnect()
   }, [])
 
-  // ── 30 fps rAF throttle ────────────────────────────────
+  // ── rAF loop ────────────────────────────────────────
   useEffect(() => {
-    let last = 0
-    const loop = (now: number) => {
-      if (now - last >= 33) {
-        last = now
-        setTick((t) => t + 1)
-      }
+    const loop = () => {
+      setTick((t) => t + 1)
       rafRef.current = requestAnimationFrame(loop)
     }
     rafRef.current = requestAnimationFrame(loop)
@@ -164,6 +162,44 @@ export default function ScopeChart() {
           stroke="#33334a"
           strokeWidth={1}
         />
+
+        {/* Y-axis labels (top and bottom values) */}
+        {channels.filter(c => c.enabled).length > 0 && (() => {
+          const ch = channels.find(c => c.enabled)!
+          const topVal = ch.bias * ch.yRange + ch.yRange * 2.5
+          const botVal = ch.bias * ch.yRange - ch.yRange * 2.5
+          return (
+            <g>
+              <text x={PAD.left - 4} y={PAD.top + 10} fill="#71717a" fontSize={9} fontFamily="monospace" textAnchor="end">
+                {fmtNum(topVal)}
+              </text>
+              <text x={PAD.left - 4} y={h - PAD.bottom - 2} fill="#71717a" fontSize={9} fontFamily="monospace" textAnchor="end">
+                {fmtNum(botVal)}
+              </text>
+              <text x={PAD.left - 4} y={centerY + 3} fill="#71717a" fontSize={9} fontFamily="monospace" textAnchor="end">
+                {fmtNum(ch.bias * ch.yRange)}
+              </text>
+            </g>
+          )
+        })()}
+
+        {/* X-axis time tick labels */}
+        {vGridLines.map((x, i) => {
+          const t = (i / 8) * span
+          return (
+            <text
+              key={`xt${i}`}
+              x={x}
+              y={h - PAD.bottom + 14}
+              fill="#71717a"
+              fontSize={9}
+              fontFamily="monospace"
+              textAnchor="middle"
+            >
+              {fmtNum(t)} {spanUnit}
+            </text>
+          )
+        })}
 
         {/* Waveform paths */}
         {paths.map((p, i) => (

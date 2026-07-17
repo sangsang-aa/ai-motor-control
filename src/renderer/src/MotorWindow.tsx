@@ -8,12 +8,40 @@ import { useScopeStore } from './store/scopeStore'
 import { useMotorStore } from './store/motorStore'
 
 const MotorWindow: React.FC = () => {
-  const { rpmHistory, currentHistory, status, connected } = useMotorStore()
+  const { status, connected, applyEvent } = useMotorStore()
   const applyFrame = useScopeStore(s => s.applyFrame)
-  const lastFedLen = useRef(0)
   const [panelW, setPanelW] = useState(280)
   const showHex = useScopeStore(s => s.showHex)
   const dragging = useRef(false)
+
+  useEffect(() => {
+    return window.api.onBackendEvent(e => {
+      applyEvent(e)
+      if (e.type === 'telemetry') {
+        const seriesIa = e.seriesIa || []
+        const seriesRpm = e.seriesRpm || []
+        if (seriesIa.length > 0 && seriesRpm.length > 0) {
+          const payload: number[] = []
+          const len = Math.min(seriesIa.length, seriesRpm.length)
+          for (let i = 0; i < len; i++) {
+            payload.push(seriesIa[i] || 0, seriesRpm[i] || 0)
+          }
+          if (payload.length > 0) applyFrame(payload, 2)
+        }
+      }
+    })
+  }, [applyEvent, applyFrame])
+
+  useEffect(() => {
+    window.api.requestStatus().then(s => {
+      if (s.connected) {
+        useMotorStore.setState({
+          connected: true,
+          status: { ...useMotorStore.getState().status, connected: true, port: s.port, baudRate: s.baudRate }
+        })
+      }
+    }).catch(() => {})
+  }, [])
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault(); dragging.current = true
@@ -22,15 +50,6 @@ const MotorWindow: React.FC = () => {
     const onUp = () => { dragging.current = false; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
     document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp)
   }, [panelW])
-
-  useEffect(() => {
-    const len = Math.min(rpmHistory.length, currentHistory.length)
-    if (len <= lastFedLen.current) return
-    const payload: number[] = []
-    for (let i = lastFedLen.current; i < len; i++) { payload.push(currentHistory[i] || 0, rpmHistory[i] || 0) }
-    if (payload.length > 0) applyFrame(payload, 2)
-    lastFedLen.current = len
-  }, [rpmHistory.length, currentHistory.length])
 
   useEffect(() => {
     const s = useScopeStore.getState()
