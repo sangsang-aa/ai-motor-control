@@ -138,7 +138,7 @@ function LimitInput({
         }}
         className="w-12 px-0.5 py-0 rounded bg-surface text-text-primary text-[10px] font-mono border border-surface-lighter text-center"
       />
-      <span className="text-[10px] text-text-secondary">\u2013</span>
+      <span className="text-[10px] text-text-secondary">-</span>
       <input
         value={maxStr}
         onChange={(e) => setMaxStr(e.target.value)}
@@ -293,13 +293,13 @@ function ChannelRow({ ch, idx }: { ch: ChannelCfg; idx: number }) {
             title="Channel color"
           />
           {ch.colorOverride && (
-            <button
-              onClick={() => setChannelColor(idx, null)}
-              className="text-[10px] text-text-secondary hover:text-text-primary px-0.5"
-              title="Reset to auto color"
-            >
-              \u21BA
-            </button>
+          <button
+            onClick={() => { setChannelColor(idx, null) }}
+            className="text-[10px] text-text-secondary hover:text-text-primary px-0.5"
+            title="Reset to auto color"
+          >
+            R
+          </button>
           )}
         </div>
       </div>
@@ -325,7 +325,7 @@ function ChannelRow({ ch, idx }: { ch: ChannelCfg; idx: number }) {
           className="text-[11px] text-text-secondary hover:text-text-primary px-0.5"
           title="Reset bias to defaults"
         >
-          \u21BA
+          R
         </button>
       </div>
 
@@ -357,7 +357,7 @@ function ChannelRow({ ch, idx }: { ch: ChannelCfg; idx: number }) {
           className="text-[11px] text-text-secondary hover:text-text-primary px-0.5"
           title="Reset V/div to defaults"
         >
-          \u21BA
+          R
         </button>
       </div>
 
