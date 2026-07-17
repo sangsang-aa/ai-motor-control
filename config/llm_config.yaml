@@ -1,7 +1,6 @@
 # LLM 配置 — 阿里云百炼 OpenAI 兼容接口
 base_url: "https://ws-4re9lk3au8wwdleg.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"
-api_key: "sk-ws-H.RXMMRXR.IqxU.MEUCIBAhgiaItmJms91dyw0Foi_fflDDY_zGvnZfAxZ_4kJYAiEAsNKSg1qzC8Ba6vUMd2We6bC3MPihH2PALHoL8BFFGR0
-"
+api_key: "sk-ws-H.RXMMRXR.IqxU.MEUCIBAhgiaItmJms91dyw0Foi_fflDDY_zGvnZfAxZ_4kJYAiEAsNKSg1qzC8Ba6vUMd2We6bC3MPihH2PALHoL8BFFGR0"
 model_name: "qwen3.7-plus"
 
 # 系统提示词（AI 行为边界）

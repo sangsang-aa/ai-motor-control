@@ -47,11 +47,6 @@ export class PythonBackendController {
     this.proc?.stdin?.write(JSON.stringify({ type: 'command', action: 'disconnect', payload: {} }) + '\n')
   }
 
-  private removeListener(cb: (e: BackendEvent) => void) {
-    const idx = this.listeners.indexOf(cb)
-    if (idx >= 0) this.listeners.splice(idx, 1)
-  }
-
   async sendCommand(action: string, payload: Record<string, unknown>): Promise<string> {
     if (!this.proc?.stdin) return 'serial backend not started — connect serial first'
     return new Promise(resolve => {
