@@ -83,7 +83,7 @@ const App: React.FC = () => {
   }, [inflight, lock.status])
 
   return (
-    <div className="h-full flex flex-col" style={{ background: '#0a1628' }}>
+    <div className="h-full flex flex-col" style={{ background: '#f7f7f4' }}>
       <Topbar />
       {lock.status !== 'idle' && <CommandLockBanner />}
       {disconnectMessage && !connected && <DisconnectBanner />}

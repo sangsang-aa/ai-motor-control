@@ -59,17 +59,17 @@ const MotorWindow: React.FC = () => {
   const dot = (on: boolean) => ({ display:'inline-block',width:10,height:10,borderRadius:'50%',marginRight:8,background:on?'#34c759':'#ff3b30',boxShadow:`0 0 6px ${on?'rgba(52,199,89,0.6)':'rgba(255,59,48,0.4)'}` })
 
   return (
-    <div style={{ display:'flex',flexDirection:'column',height:'100vh',background:'#0a1628',color:'#e8ecf1',fontFamily:"'Noto Sans SC',system-ui,sans-serif" }}>
-      <header style={{ display:'flex',alignItems:'center',padding:'0 16px',height:44,flexShrink:0,background:'linear-gradient(180deg,#152238 0%,#111d32 100%)',borderBottom:'1px solid #1e3454',gap:12 }}>
-        <span style={{ fontSize:13,fontWeight:700,letterSpacing:'0.05em',background:'linear-gradient(135deg,#00a8ff,#4dc9ff)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent' }}>示波器</span>
-        <span style={dot(connected)} />
-        <span style={{ fontSize:12,color:'#8899aa' }}>{connected ? '已连接' : '未连接'}</span>
-        {connected && <span style={{ fontSize:11,color:'#556677' }}>{status.port} @ {status.baudRate}</span>}
+    <div style={{ display:'flex',flexDirection:'column',height:'100vh',background:'#f7f7f4',color:'#26251e',fontFamily:"'Inter',system-ui,sans-serif" }}>
+      <header style={{ display:'flex',alignItems:'center',padding:'0 16px',height:44,flexShrink:0,background:'#fafaf7',borderBottom:'1px solid #e6e5e0',gap:12 }}>
+        <span style={{ fontSize:13,fontWeight:600,color:'#f54e00' }}>MOTOTUNE 示波器</span>
+        <span style={{ marginLeft:20,...dot(connected) }} />
+        <span style={{ fontSize:12,color:'#807d72' }}>{connected ? '已连接' : '未连接'}</span>
+        {connected && <span style={{ fontSize:11,color:'#a09c92' }}>{status.port} @ {status.baudRate}</span>}
         <div style={{ marginLeft:'auto',display:'flex',gap:8,alignItems:'center' }}>
           <PauseToggle />
           <HexToggle />
-          <span style={{ fontSize:12,color:'#8899aa' }}>转速 <b style={{ color:'#00a8ff',fontFamily:"'JetBrains Mono',Consolas,monospace" }}>{status.rpm.toFixed(0)}</b> RPM</span>
-          <span style={{ fontSize:12,color:'#8899aa' }}>电流 <b style={{ color:'#ff9500',fontFamily:"'JetBrains Mono',Consolas,monospace" }}>{status.currentIa.toFixed(2)}</b> A</span>
+          <span style={{ fontSize:12,color:'#807d72' }}>转速 <b style={{ color:'#f54e00',fontFamily:"'JetBrains Mono',Consolas,monospace" }}>{status.rpm.toFixed(0)}</b> RPM</span>
+          <span style={{ fontSize:12,color:'#807d72' }}>电流 <b style={{ color:'#1f8a65',fontFamily:"'JetBrains Mono',Consolas,monospace" }}>{status.currentIa.toFixed(2)}</b> A</span>
         </div>
       </header>
       <div style={{ flex:1,display:'flex',minHeight:0 }}>
@@ -78,8 +78,8 @@ const MotorWindow: React.FC = () => {
         </div>
         <div onMouseDown={onMouseDown}
           style={{ width:4,cursor:'col-resize',flexShrink:0,transition:'background 0.15s' }}
-          ref={el => { if (el) { el.style.background = '#1e3454'; el.onmouseenter = () => { el.style.background = '#00a8ff' }; el.onmouseleave = () => { el.style.background = '#1e3454' } } }} />
-        <div style={{ width:panelW,flexShrink:0,borderLeft:'1px solid #1e3454',background:'#111d32',overflowY:'auto' }}>
+          ref={el => { if (el) { el.style.background = '#e6e5e0'; el.onmouseenter = () => { el.style.background = '#f54e00' }; el.onmouseleave = () => { el.style.background = '#e6e5e0' } } }} />
+        <div style={{ width:panelW,flexShrink:0,borderLeft:'1px solid #e6e5e0',background:'#fafaf7',overflowY:'auto' }}>
           <ChannelPanel />
         </div>
       </div>

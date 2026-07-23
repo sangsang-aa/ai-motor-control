@@ -21,9 +21,9 @@ export const Sidebar: React.FC = () => {
 
   if (collapsed) {
     return (
-      <div style={{ width:36,flexShrink:0,background:'linear-gradient(180deg,#121e33 0%,#0f1a2d 100%)',borderRight:'1px solid #1e3454',display:'flex',flexDirection:'column',alignItems:'center',paddingTop:12,gap:12 }}>
-        <button onClick={() => setCollapsed(false)} style={{ color:'#8899aa',fontSize:14,cursor:'pointer',background:'none',border:'none' }} title="展开侧栏">☰</button>
-        <button onClick={() => window.api.openMotorWindow().catch(console.error)} style={{ color:'#556677',fontSize:12,cursor:'pointer',background:'none',border:'none' }} title="示波器">📟</button>
+      <div style={{ width:36,flexShrink:0,background:'#fafaf7',borderRight:'1px solid #e6e5e0',display:'flex',flexDirection:'column',alignItems:'center',paddingTop:12,gap:12 }}>
+        <button onClick={() => setCollapsed(false)} style={{ color:'#807d72',fontSize:14,cursor:'pointer',background:'none',border:'none' }} title="展开侧栏">☰</button>
+        <button onClick={() => window.api.openMotorWindow().catch(console.error)} style={{ color:'#a09c92',fontSize:12,cursor:'pointer',background:'none',border:'none' }} title="示波器">📟</button>
         <button onClick={() => window.api.generateReport().then(p => { if(p) window.open('file://'+p) }).catch(console.error)} style={{ color:'#556677',fontSize:12,cursor:'pointer',background:'none',border:'none' }} title="导出">📄</button>
       </div>
     )
@@ -65,9 +65,9 @@ export const Sidebar: React.FC = () => {
         </div>
       </aside>
       <div onMouseDown={onMouseDown} style={{ width:4,cursor:'col-resize',flexShrink:0,transition:'background 0.15s' }}
-        onMouseEnter={e => (e.target as HTMLElement).style.background = '#00a8ff'}
-        onMouseLeave={e => (e.target as HTMLElement).style.background = '#1e3454'}
-        ref={el => { if (el) el.style.background = '#1e3454' }} />
+        onMouseEnter={e => (e.target as HTMLElement).style.background = '#f54e00'}
+        onMouseLeave={e => (e.target as HTMLElement).style.background = '#e6e5e0'}
+        ref={el => { if (el) el.style.background = '#e6e5e0' }} />
     </div>
   )
 }
