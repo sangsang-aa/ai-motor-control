@@ -1,6 +1,6 @@
 # 电机串口配置
 port: "/dev/ttyUSB0"
-baud_rate: 150000          # 默认波特率，LLM 可在运行时修改
+baud_rate: 1500000          # 默认波特率，LLM 可在运行时修改
 rpm_limit: 6000            # 转速上限（安全约束）
 current_alarm_threshold: 10.0  # 电流告警阈值 (A)
 

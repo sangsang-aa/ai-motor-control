@@ -14,8 +14,8 @@ export const Topbar: React.FC = () => {
 
   return (
     <header className="topbar" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
-      <span className="topbar-brand">MOTOTUNE</span>
-      <div className="flex items-center gap-2 ml-6 text-xs">
+      <span className="topbar-brand" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>MOTOTUNE</span>
+      <div className="flex items-center gap-2 ml-6 text-xs" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
         <span className={`topbar-indicator ${connected?'on':'off'}`} />
         <span style={{minWidth:48,color:'#5a5852'}}>{connected?'已连接':'未连接'}</span>
         <span style={{fontSize:11,color:'#a09c92',minWidth:28}}>端口</span>
@@ -30,7 +30,7 @@ export const Topbar: React.FC = () => {
           {connected ? '断开' : '连接'}
         </button>
       </div>
-      <div className="flex items-center gap-5 ml-auto">
+      <div className="flex items-center gap-5 ml-auto" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
         <div className="topbar-stat"><span style={{color:'#807d72'}}>转速</span><span className="v">{status.rpm.toFixed(0)}</span><span className="u">RPM</span></div>
         <div className="topbar-stat"><span style={{color:'#807d72'}}>电流</span><span className="v">{status.currentIa.toFixed(2)}</span><span className="u">A</span></div>
         {connected && <span style={{fontSize:11,color:'#a09c92'}}>{status.baudRate} baud</span>}
