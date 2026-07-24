@@ -60,11 +60,11 @@ const MotorWindow: React.FC = () => {
 
   return (
     <div style={{ display:'flex',flexDirection:'column',height:'100vh',background:'#f7f7f4',color:'#26251e',fontFamily:"'Inter',system-ui,sans-serif" }}>
-      <header style={{ display:'flex',alignItems:'center',padding:'0 16px',height:44,flexShrink:0,background:'#fafaf7',borderBottom:'1px solid #e6e5e0',gap:12 }}>
-        <span style={{ fontSize:13,fontWeight:600,color:'#f54e00' }}>MOTOTUNE 示波器</span>
-        <span style={{ marginLeft:20,...dot(connected) }} />
-        <span style={{ fontSize:12,color:'#807d72' }}>{connected ? '已连接' : '未连接'}</span>
-        {connected && <span style={{ fontSize:11,color:'#a09c92' }}>{status.port} @ {status.baudRate}</span>}
+      <header style={{ display:'flex',alignItems:'center',padding:'0 16px',height:44,flexShrink:0,background:'#fafaf7',borderBottom:'1px solid #e6e5e0',gap:12,WebkitAppRegion:'drag' } as React.CSSProperties}>
+        <span style={{ fontSize:13,fontWeight:600,color:'#f54e00',WebkitAppRegion:'no-drag' } as React.CSSProperties}>MOTOTUNE 示波器</span>
+        <span style={{ marginLeft:20,...dot(connected),WebkitAppRegion:'no-drag' } as React.CSSProperties} />
+        <span style={{ fontSize:12,color:'#807d72',WebkitAppRegion:'no-drag' } as React.CSSProperties}>{connected ? '已连接' : '未连接'}</span>
+        {connected && <span style={{ fontSize:11,color:'#a09c92',WebkitAppRegion:'no-drag' } as React.CSSProperties}>{status.port} @ {status.baudRate}</span>}
         <div style={{ marginLeft:'auto',display:'flex',gap:8,alignItems:'center' }}>
           <PauseToggle />
           <HexToggle />
@@ -72,9 +72,9 @@ const MotorWindow: React.FC = () => {
           <span style={{ fontSize:12,color:'#807d72' }}>电流 <b style={{ color:'#1f8a65',fontFamily:"'JetBrains Mono',Consolas,monospace" }}>{status.currentIa.toFixed(2)}</b> A</span>
         </div>
         <div style={{ marginLeft:'auto',display:'flex',gap:2,WebkitAppRegion:'no-drag' } as React.CSSProperties}>
-          <button onClick={() => window.api.winMinimize()} style={{width:32,height:28,background:'none',border:'none',color:'#807d72',fontSize:18,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>–</button>
-          <button onClick={() => window.api.winMaximize()} style={{width:32,height:28,background:'none',border:'none',color:'#807d72',fontSize:14,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>□</button>
-          <button onClick={() => window.api.winClose()} style={{width:32,height:28,background:'none',border:'none',color:'#807d72',fontSize:18,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
+          <button onClick={() => window.api.chartMinimize()} style={{width:32,height:28,background:'none',border:'none',color:'#807d72',fontSize:18,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>–</button>
+          <button onClick={() => window.api.chartMaximize()} style={{width:32,height:28,background:'none',border:'none',color:'#807d72',fontSize:14,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>□</button>
+          <button onClick={() => window.api.chartClose()} style={{width:32,height:28,background:'none',border:'none',color:'#807d72',fontSize:18,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
         </div>
       </header>
       <div style={{ flex:1,display:'flex',minHeight:0 }}>

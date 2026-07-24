@@ -53,4 +53,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('window:minimize', () => { const w = getMainWindow(); if (w) w.minimize() })
   ipcMain.handle('window:maximize', () => { const w = getMainWindow(); if (w) { w.isMaximized() ? w.unmaximize() : w.maximize() } })
   ipcMain.handle('window:close', () => { const w = getMainWindow(); if (w) w.close() })
+  ipcMain.handle('chart:minimize', () => { const w = getMotorWindow(); if (w) w.minimize() })
+  ipcMain.handle('chart:maximize', () => { const w = getMotorWindow(); if (w) { w.isMaximized() ? w.unmaximize() : w.maximize() } })
+  ipcMain.handle('chart:close', () => { const w = getMotorWindow(); if (w) w.close() })
 }

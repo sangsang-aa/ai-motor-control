@@ -25,6 +25,9 @@ const api = {
   },
   winMinimize: () => ipcRenderer.invoke('window:minimize'),
   winMaximize: () => ipcRenderer.invoke('window:maximize'),
-  winClose: () => ipcRenderer.invoke('window:close')
+  winClose: () => ipcRenderer.invoke('window:close'),
+  chartMinimize: () => ipcRenderer.invoke('chart:minimize'),
+  chartMaximize: () => ipcRenderer.invoke('chart:maximize'),
+  chartClose: () => ipcRenderer.invoke('chart:close')
 }
 contextBridge.exposeInMainWorld('api', api)
