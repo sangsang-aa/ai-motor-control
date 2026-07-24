@@ -7,11 +7,10 @@ export const Topbar: React.FC = () => {
   const [baud, setBaud] = React.useState(String(status.baudRate || '150000'))
   const [maxed, setMaxed] = React.useState(false)
 
-  React.useEffect(() => {
-    const onResize = () => setMaxed(window.innerWidth === screen.width && window.innerHeight === screen.height)
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
-  }, [])
+  const handleMaximize = async () => {
+    await window.api.winMaximize()
+    setMaxed(!maxed)
+  }
 
   const handleToggle = async () => {
     const b = parseInt(baud)
@@ -43,7 +42,7 @@ export const Topbar: React.FC = () => {
         {connected && <span style={{fontSize:11,color:'#a09c92'}}>{status.baudRate} baud</span>}
         <div style={{ display:'flex',gap:2,marginLeft:16,WebkitAppRegion:'no-drag' } as React.CSSProperties}>
           <button onClick={() => window.api.winMinimize()} style={{width:32,height:28,background:'none',border:'none',color:'#807d72',fontSize:18,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>–</button>
-          <button onClick={() => window.api.winMaximize()} style={{width:32,height:28,background:'none',border:'none',color:'#807d72',fontSize:maxed?16:14,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>{maxed ? '❐' : '□'}</button>
+          <button onClick={handleMaximize} style={{width:32,height:28,background:'none',border:'none',color:'#807d72',fontSize:maxed?16:14,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>{maxed ? '❐' : '□'}</button>
           <button onClick={() => window.api.winClose()} style={{width:32,height:28,background:'none',border:'none',color:'#807d72',fontSize:18,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
         </div>
       </div>
