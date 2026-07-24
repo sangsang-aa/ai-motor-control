@@ -61,7 +61,7 @@ export const Sidebar: React.FC = () => {
         <div className="p-2 border-t border-line space-y-1">
           <div className="text-[10px] font-bold uppercase tracking-wider text-fg-subtle px-1 pb-1" style={{letterSpacing:'0.08em'}}>工具栏</div>
           <button onClick={() => window.api.openMotorWindow().catch(console.error)} className="sidebar-nav-item">示波器</button>
-          <button onClick={() => window.api.generateReport().then(p => { if(p) window.api.openReport(p) }).catch(console.error)} className="sidebar-nav-item">导出报告</button>
+          <button onClick={() => window.api.generateReport().then(p => { if(p) window.open('file://'+p) }).catch(console.error)} className="sidebar-nav-item">导出报告</button>
         </div>
       </aside>
       <div onMouseDown={onMouseDown} style={{ width:4,cursor:'col-resize',flexShrink:0,transition:'background 0.15s' }}

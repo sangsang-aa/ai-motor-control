@@ -56,9 +56,4 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('chart:minimize', () => { const w = getMotorWindow(); if (w) w.minimize() })
   ipcMain.handle('chart:maximize', () => { const w = getMotorWindow(); if (w) { w.isMaximized() ? w.unmaximize() : w.maximize() } })
   ipcMain.handle('chart:close', () => { const w = getMotorWindow(); if (w) w.close() })
-
-  ipcMain.handle('report:open', async (_e, path: string) => {
-    const { shell } = require('electron')
-    await shell.openPath(path)
-  })
 }
