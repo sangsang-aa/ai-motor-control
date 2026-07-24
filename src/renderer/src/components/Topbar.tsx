@@ -13,7 +13,7 @@ export const Topbar: React.FC = () => {
   }
 
   return (
-    <header className="topbar">
+    <header className="topbar" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
       <span className="topbar-brand">MOTOTUNE</span>
       <div className="flex items-center gap-2 ml-6 text-xs">
         <span className={`topbar-indicator ${connected?'on':'off'}`} />
@@ -34,6 +34,11 @@ export const Topbar: React.FC = () => {
         <div className="topbar-stat"><span style={{color:'#807d72'}}>转速</span><span className="v">{status.rpm.toFixed(0)}</span><span className="u">RPM</span></div>
         <div className="topbar-stat"><span style={{color:'#807d72'}}>电流</span><span className="v">{status.currentIa.toFixed(2)}</span><span className="u">A</span></div>
         {connected && <span style={{fontSize:11,color:'#a09c92'}}>{status.baudRate} baud</span>}
+        <div style={{ display:'flex',gap:2,marginLeft:16,WebkitAppRegion:'no-drag' } as React.CSSProperties}>
+          <button onClick={() => window.api.winMinimize()} style={{width:32,height:28,background:'none',border:'none',color:'#807d72',fontSize:18,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>–</button>
+          <button onClick={() => window.api.winMaximize()} style={{width:32,height:28,background:'none',border:'none',color:'#807d72',fontSize:14,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>□</button>
+          <button onClick={() => window.api.winClose()} style={{width:32,height:28,background:'none',border:'none',color:'#807d72',fontSize:18,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
+        </div>
       </div>
     </header>
   )

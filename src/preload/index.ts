@@ -22,6 +22,9 @@ const api = {
   onLlmEvent: (cb: (e: LlmEvent) => void): (() => void) => {
     const h = (_e: Electron.IpcRendererEvent, e: LlmEvent) => cb(e)
     ipcRenderer.on('llm:event', h); return () => ipcRenderer.removeListener('llm:event', h)
-  }
+  },
+  winMinimize: () => ipcRenderer.invoke('window:minimize'),
+  winMaximize: () => ipcRenderer.invoke('window:maximize'),
+  winClose: () => ipcRenderer.invoke('window:close')
 }
 contextBridge.exposeInMainWorld('api', api)

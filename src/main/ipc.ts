@@ -49,4 +49,8 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('export:generateReport', async () => {
     const sessions = sessionManager.list(); if (sessions.length === 0) return ''; return generateReport(sessions[0])
   })
+
+  ipcMain.handle('window:minimize', () => { const w = getMainWindow(); if (w) w.minimize() })
+  ipcMain.handle('window:maximize', () => { const w = getMainWindow(); if (w) { w.isMaximized() ? w.unmaximize() : w.maximize() } })
+  ipcMain.handle('window:close', () => { const w = getMainWindow(); if (w) w.close() })
 }

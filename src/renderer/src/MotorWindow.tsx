@@ -71,6 +71,11 @@ const MotorWindow: React.FC = () => {
           <span style={{ fontSize:12,color:'#807d72' }}>转速 <b style={{ color:'#f54e00',fontFamily:"'JetBrains Mono',Consolas,monospace" }}>{status.rpm.toFixed(0)}</b> RPM</span>
           <span style={{ fontSize:12,color:'#807d72' }}>电流 <b style={{ color:'#1f8a65',fontFamily:"'JetBrains Mono',Consolas,monospace" }}>{status.currentIa.toFixed(2)}</b> A</span>
         </div>
+        <div style={{ marginLeft:'auto',display:'flex',gap:2,WebkitAppRegion:'no-drag' } as React.CSSProperties}>
+          <button onClick={() => window.api.winMinimize()} style={{width:32,height:28,background:'none',border:'none',color:'#807d72',fontSize:18,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>–</button>
+          <button onClick={() => window.api.winMaximize()} style={{width:32,height:28,background:'none',border:'none',color:'#807d72',fontSize:14,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>□</button>
+          <button onClick={() => window.api.winClose()} style={{width:32,height:28,background:'none',border:'none',color:'#807d72',fontSize:18,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
+        </div>
       </header>
       <div style={{ flex:1,display:'flex',minHeight:0 }}>
         <div style={{ flex:1,minWidth:0,overflow:'hidden' }}>
