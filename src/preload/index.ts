@@ -28,6 +28,7 @@ const api = {
   winClose: () => ipcRenderer.invoke('window:close'),
   chartMinimize: () => ipcRenderer.invoke('chart:minimize'),
   chartMaximize: () => ipcRenderer.invoke('chart:maximize'),
-  chartClose: () => ipcRenderer.invoke('chart:close')
+  chartClose: () => ipcRenderer.invoke('chart:close'),
+  openReport: (path: string) => ipcRenderer.invoke('report:open', path)
 }
 contextBridge.exposeInMainWorld('api', api)
