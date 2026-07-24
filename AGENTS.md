@@ -45,9 +45,10 @@ node build.mjs           # 4 入口: main + preload + renderer + motor
 
 ## 组件约束
 
+- **Cursor 暖白主题**：`#f7f7f4` 底色 + `#f54e00` Cursor Orange 强调 + Inter 字体 + hairline 边框 + 无阴影。
+- **无边框窗口**：`frame: false`。Topbar 设置 `WebkitAppRegion: 'drag'`，可交互元素（输入框/按钮）必须 `no-drag`，否则无法点击。
 - **无 emoji**。EStop `bottom:90px`。颜色全用原始 CSS。
 - **Sidebar**：可拖拽(160-400px)，◀ 折叠 36px，工具栏分组。"新建会话"首条消息自动命名。
-- **Topbar**：CSS 渐变 MOTOTUNE，端口/波特率前有标签。
 
 ## 双分支
 
