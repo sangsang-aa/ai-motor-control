@@ -12,6 +12,7 @@ const MotorWindow: React.FC = () => {
   const applyFrame = useScopeStore(s => s.applyFrame)
   const [panelW, setPanelW] = useState(280)
   const showHex = useScopeStore(s => s.showHex)
+  const [chartMaxed, setChartMaxed] = useState(false)
   const dragging = useRef(false)
 
   useEffect(() => {
@@ -73,7 +74,7 @@ const MotorWindow: React.FC = () => {
         </div>
         <div style={{ marginLeft:'auto',display:'flex',gap:2,WebkitAppRegion:'no-drag' } as React.CSSProperties}>
           <button onClick={() => window.api.chartMinimize()} style={{width:32,height:28,background:'none',border:'none',color:'#807d72',fontSize:18,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>–</button>
-          <button onClick={() => window.api.chartMaximize()} style={{width:32,height:28,background:'none',border:'none',color:'#807d72',fontSize:14,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>□</button>
+          <button onClick={async () => { await window.api.chartMaximize(); setChartMaxed(!chartMaxed) }} style={{width:32,height:28,background:'none',border:'none',color:'#807d72',fontSize:chartMaxed?16:14,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>{chartMaxed ? '❐' : '□'}</button>
           <button onClick={() => window.api.chartClose()} style={{width:32,height:28,background:'none',border:'none',color:'#807d72',fontSize:18,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
         </div>
       </header>
