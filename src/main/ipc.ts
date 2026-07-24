@@ -59,6 +59,8 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('report:open', async (_e, path: string) => {
     const { shell } = require('electron')
-    await shell.openPath(path)
+    shell.openExternal(`file://${path}`).catch(() => {
+      shell.openPath(path).catch(() => {})
+    })
   })
 }
