@@ -58,7 +58,9 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('chart:close', () => { const w = getMotorWindow(); if (w) w.close() })
 
   ipcMain.handle('report:open', async (_e, path: string) => {
-    const { dialog } = require('electron')
-    dialog.showMessageBox({ type: 'info', title: '报告已生成', message: `报告已保存至:\n${path}`, buttons: ['确定'] })
+    const { shell } = require('electron')
+    shell.openExternal(`file://${path}`).catch(() => {
+      shell.openPath(path).catch(() => {})
+    })
   })
 }
