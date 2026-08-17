@@ -33,4 +33,7 @@ echo "[3/3] 构建 & 启动..."
 echo ""
 
 node build.mjs
-exec ./node_modules/electron/dist/electron . --no-sandbox
+# --ozone-platform=x11: Electron 33 on Wayland sessions defaults to X11/XWayland anyway,
+# but forcing it keeps the frameless maximize fix (manual setBounds) active even if
+# ELECTRON_OZONE_PLATFORM_HINT=wayland leaks into the environment.
+exec ./node_modules/electron/dist/electron . --no-sandbox --ozone-platform=x11

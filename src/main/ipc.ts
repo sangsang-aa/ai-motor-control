@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron'
+import { ipcMain, app, screen, BrowserWindow } from 'electron'
 import { PythonBackendController } from './pythonBridge'
 import { SessionManager } from './sessions'
 import { LlmProxy } from './llmProxy'
@@ -51,9 +51,39 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('window:minimize', () => { const w = getMainWindow(); if (w) w.minimize() })
-  ipcMain.handle('window:maximize', () => { const w = getMainWindow(); if (w) { w.isMaximized() ? w.unmaximize() : w.maximize() } })
+  ipcMain.handle('window:maximize', () => { const w = getMainWindow(); if (w) toggleMaximize(w) })
   ipcMain.handle('window:close', () => { const w = getMainWindow(); if (w) w.close() })
   ipcMain.handle('chart:minimize', () => { const w = getMotorWindow(); if (w) w.minimize() })
-  ipcMain.handle('chart:maximize', () => { const w = getMotorWindow(); if (w) { w.isMaximized() ? w.unmaximize() : w.maximize() } })
+  ipcMain.handle('chart:maximize', () => { const w = getMotorWindow(); if (w) toggleMaximize(w) })
   ipcMain.handle('chart:close', () => { const w = getMotorWindow(); if (w) w.close() })
+}
+
+// Frameless windows: WM maximize offsets the window by stale frame extents (broken on X11/XWayland).
+// setBounds(workArea) bypasses the WM path; on native Wayland positioning is compositor-blocked, so keep win.maximize().
+const restoreBounds = new WeakMap<BrowserWindow, Electron.Rectangle>()
+const manuallyMaxed = new WeakSet<BrowserWindow>()
+function toggleMaximize(win: BrowserWindow): void {
+  if (app.commandLine.getSwitchValue('ozone-platform') === 'wayland') {
+    win.isMaximized() ? win.unmaximize() : win.maximize()
+    return
+  }
+  // WM-native maximize (e.g. double-click titlebar, Super+Up) — use native restore
+  if (win.isMaximized()) {
+    win.unmaximize()
+    restoreBounds.delete(win)
+    manuallyMaxed.delete(win)
+    return
+  }
+  // Manual maximize/restore (setBounds-based, bypasses WM frame-extents offset)
+  if (manuallyMaxed.has(win)) {
+    const b = restoreBounds.get(win)
+    if (b) win.setBounds(b)
+    restoreBounds.delete(win)
+    manuallyMaxed.delete(win)
+  } else {
+    restoreBounds.set(win, win.getBounds())
+    const { workArea } = screen.getDisplayMatching(win.getBounds())
+    win.setBounds(workArea)
+    manuallyMaxed.add(win)
+  }
 }
