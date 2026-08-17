@@ -64,7 +64,7 @@ Next.js (App Router, 纯客户端渲染)
 ## 开发
 
 ```bash
-cp .env.example .env.local   # 填入 LLM_API_KEY
+cp .env.example .env.local   # 填入 LLM_API_KEY(⚠️ 必须编辑,不能直接用占位符,否则 /api/llm 返回 401)
 npm install
 npm run dev                  # http://localhost:3000
 npm run build && npm start   # 生产模式(需保留 /api/llm,不能 next export)

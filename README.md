@@ -12,6 +12,10 @@ npm install
 npm run dev                  # http://localhost:3000
 ```
 
+> **⚠️ 必读:`.env.local` 必须填入真实 API Key 才能使用 AI 对话。**
+> 直接 `cp` 后 `.env.local` 里是占位符 `sk-xxxxxxxx`,LLM 代理会返回 401、对话报"API 连接失败"。
+> 请打开 `.env.local`,把 `LLM_API_KEY` 替换为你的真实 Key(阿里云百炼专属部署 Key 需配合对应 `LLM_BASE_URL`,两者必须来自同一个平台)。
+
 浏览器要求:**Chrome/Edge**(需支持 Web Serial),访问需 HTTPS 或 localhost。
 
 ## 功能
