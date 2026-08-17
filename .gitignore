@@ -1,13 +1,16 @@
 node_modules/
+.next/
 out/
 release/
 dist/
-*.pyc
-__pycache__/
-.python-version
-.venv/
+*.tsbuildinfo
+next-env.d.ts
+
+# 环境变量 — LLM API key 等敏感配置不入库
+.env
+.env.local
+.env*.local
+
 *.log
 .DS_Store
-*.tar.gz
-*.zip
 

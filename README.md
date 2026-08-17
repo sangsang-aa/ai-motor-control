@@ -1,30 +1,43 @@
-# 功能新增
+# MOTOTUNE — AI 电驱控制系统 (Web 版)
 
-- 将电机监控功能更改为示波器，可以用于模拟低采样率的示波器进行使用
+基于 Next.js 的电机控制 Web 应用:AI 对话控制 + Web Serial 直连电机 + SVG 示波器实时波形。
 
-# 功能优化
+> **分支说明**:本分支 `web/` 是重构分支 — 从 Electron 桌面版重构为 Next.js Web 版,先写齐 Web 功能,之后封装 Electron 桌面版。桌面版见 `main`/`arm64` 分支。
 
-- 优化了主界面工具栏和顶部的描述
-- 用户可以通过拖拽侧边栏修改页面大小
+## 快速开始
 
-# Bug 修复
+```bash
+cp .env.example .env.local   # 填入 LLM API Key
+npm install
+npm run dev                  # http://localhost:3000
+```
 
-## 串口连接/断开
-- 手动断开串口后不再弹出错误横幅（之前误报"未连接"）
-- 断开时自动清零转速和电流显示
-- 示波器窗口打开时正确同步当前串口连接状态
+浏览器要求:**Chrome/Edge**(需支持 Web Serial),访问需 HTTPS 或 localhost。
 
-## 对话系统
-- 修复 LLM 只返回 tool_call 时对话卡死的问题（未发送 turn_end 导致 inflight 状态锁死）
-- 修复 sendCommand 数据监听与 readline 竞争导致命令超时的问题
+## 功能
 
-## 示波器
-- 修复示波器图像不刷新的问题（历史数组达到上限后 useEffect 不再触发）
-- 改为直接从 telemetry 事件实时喂入 scopeStore，绕过历史数组截断限制
-- 串口工作线程重构为非阻塞模式，排空所有可用帧，解决帧数据大量丢弃问题
-- 时间窗口调整为 200ms（4000 采样点）
-- 横轴添加时间刻度标签
-- 纵轴添加量程标签（顶/中/底值）
-- 移除 30fps 节流限制，刷新率提升至 ~60fps
-- ChannelPanel 宽度自适应父容器，拖拽侧边栏不再截断选项卡
-- 初始化 span 值，修复横轴刻度显示为 0 的问题
+- AI 自然语言控制电机 (set_speed / set_motor_state / get_status)
+- 指令人工确认机制 (30s 超时自动取消) + 急停按钮
+- Web Serial 直连串口,协议: `'SS' + 600×[Ia, Speed] uint16 LE + 'EE'`(1500000 波特率)
+- SVG 示波器实时波形 (多通道 + 暂停/HEX 切换 + 通道量程/偏移调节)
+- 会话自动持久化 (localStorage) + HTML 报告导出
+- 双页面:聊天 `/` + 示波器 `/scope`
+
+## 架构
+
+```
+Next.js (纯客户端渲染, 唯一服务端 = /api/llm 代理)
+  │
+  ├── ChatApp (/)  ←── backendBus / llmBus ──→  ScopeApp (/scope)
+  │                       │
+  │        lib/serial/motorController.ts (Web Serial)
+  │        lib/llm/llmClient.ts (SSE) → /api/llm → LLM (阿里云百炼兼容接口)
+  │
+  └── 4 个 zustand store: session / motor / commandLock / scope
+```
+
+- **串口**:浏览器 Web Serial API 直连硬件,协议层纯 TS(`lib/serial/protocol.ts`,从原 Python 后端移植)
+- **LLM**:同源代理 `/api/llm` 保护 API key,SSE 流式,工具调用需人工确认
+- **事件**:统一事件总线(`lib/bus.ts`),替代原 Electron 版 IPC 广播
+
+详见 AGENTS.md(含重构目的与 Electron 封装路线)。
