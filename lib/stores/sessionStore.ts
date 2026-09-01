@@ -73,7 +73,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   createSession: () => {
-    const id = `session_${Date.now()}`
+    const id = `session_${Date.now()}_${++msgCounter}`
     const now = Date.now()
     const s: Session = {
       id,

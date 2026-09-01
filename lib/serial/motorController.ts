@@ -161,7 +161,7 @@ export async function sendCommand(
     try { writer.releaseLock() } catch { /* 忽略 */ }
     writer = null
   }
-  const result = `OK rpm=${currentRpm} on=${currentOn}`
+  const result = `OK rpm=${currentRpm} on=${currentOn ? 1 : 0}`
   backendBus.emit({ type: 'executed', action, result })
   return result
 }

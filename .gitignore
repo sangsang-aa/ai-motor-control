@@ -14,3 +14,7 @@ next-env.d.ts
 *.log
 .DS_Store
 
+# 测试产物
+test-results/
+playwright-report/
+

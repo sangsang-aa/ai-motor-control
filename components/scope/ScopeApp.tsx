@@ -4,6 +4,7 @@
 'use client'
 
 import React, { useEffect, useRef, useState, useCallback } from 'react'
+import Link from 'next/link'
 import ScopeChart from './ScopeChart'
 import ChannelPanel from './ChannelPanel'
 import PauseToggle from './PauseToggle'
@@ -80,7 +81,7 @@ export const ScopeApp: React.FC = () => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#0a1628', color: '#e8ecf1', fontFamily: "'Noto Sans SC',system-ui,sans-serif" }}>
       <header style={{ display: 'flex', alignItems: 'center', padding: '0 16px', height: 44, flexShrink: 0, background: 'linear-gradient(180deg,#152238 0%,#111d32 100%)', borderBottom: '1px solid #1e3454', gap: 12 }}>
-        <a href="/" style={{ fontSize: 12, color: '#00a8ff', textDecoration: 'none', border: '1px solid rgba(0,168,255,0.3)', padding: '3px 10px', borderRadius: 4 }}>← 返回聊天</a>
+        <Link href="/" style={{ fontSize: 12, color: '#00a8ff', textDecoration: 'none', border: '1px solid rgba(0,168,255,0.3)', padding: '3px 10px', borderRadius: 4 }}>← 返回聊天</Link>
         <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.05em', background: 'linear-gradient(135deg,#00a8ff,#4dc9ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>示波器</span>
         <span style={dot(connected)} />
         <span style={{ fontSize: 12, color: '#8899aa' }}>{connected ? '已连接' : '未连接'}</span>

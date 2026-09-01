@@ -3,6 +3,7 @@
 'use client'
 
 import React, { useState, useCallback, useRef } from 'react'
+import Link from 'next/link'
 import { useSessionStore } from '@/lib/stores/sessionStore'
 import { generateReport } from '@/lib/report'
 
@@ -52,7 +53,7 @@ export const Sidebar: React.FC = () => {
     return (
       <div style={{ width: 36, flexShrink: 0, background: 'linear-gradient(180deg,#121e33 0%,#0f1a2d 100%)', borderRight: '1px solid #1e3454', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 12, gap: 12 }}>
         <button onClick={() => setCollapsed(false)} style={{ color: '#8899aa', fontSize: 14, cursor: 'pointer', background: 'none', border: 'none' }} title="展开侧栏">☰</button>
-        <a href="/scope" style={{ color: '#556677', fontSize: 12, cursor: 'pointer', textDecoration: 'none' }} title="示波器">📟</a>
+        <Link href="/scope" style={{ color: '#556677', fontSize: 12, cursor: 'pointer', textDecoration: 'none' }} title="示波器">📟</Link>
         <button onClick={handleExport} style={{ color: '#556677', fontSize: 12, cursor: 'pointer', background: 'none', border: 'none' }} title="导出报告">📄</button>
       </div>
     )
@@ -91,7 +92,7 @@ export const Sidebar: React.FC = () => {
         </nav>
         <div className="p-2 border-t border-line space-y-1">
           <div className="text-[10px] font-bold uppercase tracking-wider text-fg-subtle px-1 pb-1" style={{ letterSpacing: '0.08em' }}>工具栏</div>
-          <a href="/scope" className="sidebar-nav-item" style={{ textDecoration: 'none' }}>示波器</a>
+          <Link href="/scope" className="sidebar-nav-item" style={{ textDecoration: 'none' }}>示波器</Link>
           <button onClick={handleExport} className="sidebar-nav-item">导出报告</button>
         </div>
       </aside>

@@ -316,11 +316,11 @@ export const useScopeStore = create<ScopeState>((set, get) => ({
     const n = get().n
     const pairs = Math.floor(payload.length / nChannels)
     if (pairs === 0) return
-    const buffers = get().buffers
-    // 如果缓冲长度与 channel 数不匹配,重建
+    let buffers = get().buffers
+    // 如果缓冲长度与 channel 数不匹配,重建并继续(而非丢弃首帧)
     if (buffers.length !== nChannels) {
-      set({ buffers: emptyBuffers(n, nChannels) })
-      return
+      buffers = emptyBuffers(n, nChannels)
+      set({ buffers, filled: 0 })
     }
     for (let c = 0; c < nChannels; c++) {
       const buf = buffers[c]
