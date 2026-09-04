@@ -1,3 +1,14 @@
+# PROJECT KNOWLEDGE BASE
+
+**Generated:** 2026-09-04
+**Branch:** web
+
+## HIERARCHY
+- `lib/AGENTS.md` — 核心逻辑域(串口/LLM/store/设置)
+- `components/AGENTS.md` — 业务组件域(chat/scope)
+
+---
+
 # AGENTS.md — MOTOTUNE (web 分支)
 
 ## ⚠️ 本分支的重构目的(最高优先级)
