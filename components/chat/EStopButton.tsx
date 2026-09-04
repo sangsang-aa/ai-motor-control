@@ -8,8 +8,7 @@ import { sendCommand } from '@/lib/serial/motorController'
 export const EStopButton: React.FC<{ onEStop?: () => void }> = ({ onEStop }) => {
   const handle = async () => {
     try {
-      await sendCommand('set_motor_state', { on: false })
-      await sendCommand('set_speed', { rpm: 0 })
+      await sendCommand('emergency_stop', {})
       onEStop?.()
     } catch (err) {
       console.error('E-Stop failed:', err)

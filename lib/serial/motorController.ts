@@ -1,12 +1,20 @@
 /**
- * 串口电机控制器 — Web Serial 实现(浏览器直连硬件)。
- *
- * 架构决策(见 AGENTS.md):SerialAdapter 接口抽象,Web 版用 Web Serial API;
- * 后续封装 Electron 时加 ElectronSerialAdapter(node-serialport via IPC)实现即可,
- * UI/store 层无感知。
+ * Modbus RTU 电机控制器 — Web Serial 实现(浏览器直连 DSP 从站)。
+ * 请求-响应模式:写操作(寄存器/线圈)与 50ms 轮询遥测(0x03 读)通过串行事务队列交错,
+ * 避免 Web Serial 读写竞争。遥测结果经 backendBus 广播(示波器数据源)。
  */
 
-import { encodeCommand, FrameAssembler, RX_CHANNELS } from './protocol'
+import {
+  ADDR,
+  DEFAULT_SLAVE,
+  buildReadHoldingRegs,
+  buildWriteSingleReg,
+  buildWriteMultiRegs,
+  buildWriteSingleCoil,
+  parseReadHolding,
+  float32ToRegs,
+  regsToFloat32
+} from './modbus'
 import { backendBus, hexBus } from '../bus'
 import { DEFAULT_BAUD, RPM_LIMIT } from '../config'
 
@@ -14,10 +22,11 @@ import { DEFAULT_BAUD, RPM_LIMIT } from '../config'
 let port: SerialPort | null = null
 let reader: ReadableStreamDefaultReader<Uint8Array> | null = null
 let writer: WritableStreamDefaultWriter | null = null
-let readLoopActive = false
+let slave = DEFAULT_SLAVE
+let pollingActive = false
 let currentRpm = 0
-let currentOn = false
 let lastCurrent = 0
+let currentOn = false
 
 export function isConnected(): boolean {
   return port !== null && port.readable !== null
@@ -31,16 +40,51 @@ export function getPortName(): string {
   return vid && pid ? `USB:${vid}:${pid}` : 'Web Serial'
 }
 
-/** 检查当前浏览器是否支持 Web Serial */
 export function isWebSerialSupported(): boolean {
   return typeof navigator !== 'undefined' && 'serial' in navigator
 }
 
+// ── 串行事务队列(防止读写竞争) ─────────────────────────────────
+let txQueue: Promise<unknown> = Promise.resolve()
+function enqueue<T>(fn: () => Promise<T>): Promise<T> {
+  const run = txQueue.then(fn)
+  txQueue = run.catch(() => {})
+  return run
+}
+
+// ── 单次事务:写请求 → 读固定长度响应 ────────────────────────────
+async function transact(req: Uint8Array, respLen: number): Promise<Uint8Array> {
+  if (!port || !port.writable || !port.readable) throw new Error('未连接串口')
+  hexBus.emit(req)
+  writer = port.writable.getWriter()
+  try {
+    await writer.write(req)
+  } catch (e) {
+    throw new Error(`写失败: ${String(e instanceof Error ? e.message : e)}`)
+  } finally {
+    try { writer.releaseLock() } catch { /* 忽略 */ }
+    writer = null
+  }
+  // 等待从站响应
+  await new Promise((r) => setTimeout(r, 4))
+  const resp = new Uint8Array(respLen)
+  reader = port.readable.getReader()
+  let got = 0
+  try {
+    while (got < respLen) {
+      const { value, done } = await reader.read()
+      if (done || !value) break
+      for (let i = 0; i < value.length && got < respLen; i++) resp[got++] = value[i]
+    }
+  } finally {
+    try { reader.releaseLock() } catch { /* 忽略 */ }
+    reader = null
+  }
+  hexBus.emit(resp.slice(0, got))
+  return resp.slice(0, got)
+}
+
 // ── 连接/断开 ─────────────────────────────────────────────────────
-/**
- * 连接串口。必须在用户手势(点击)中调用 — Web Serial 要求 requestPort() 由手势触发。
- * 成功后自动启动读循环,telemetry/error 通过 backendBus 广播。
- */
 export async function connect(baudRate: number = DEFAULT_BAUD): Promise<{ ok: boolean; error?: string }> {
   if (!isWebSerialSupported()) {
     return { ok: false, error: '当前浏览器不支持 Web Serial(需 Chrome/Edge,且需 HTTPS 或 localhost)' }
@@ -51,22 +95,21 @@ export async function connect(baudRate: number = DEFAULT_BAUD): Promise<{ ok: bo
     await p.open({ baudRate })
     port = p
     currentRpm = 0
-    currentOn = false
     lastCurrent = 0
+    currentOn = false
     backendBus.emit({ type: 'serial_status', connected: true, port: getPortName(), baudRate })
-    startReadLoop()
+    startPolling()
     return { ok: true }
   } catch (e) {
     return { ok: false, error: String(e instanceof Error ? e.message : e) }
   }
 }
 
-/** 断开串口:取消读循环、关闭读写流。断开时清零状态。 */
 export async function disconnect(): Promise<void> {
-  readLoopActive = false
+  pollingActive = false
   try { await reader?.cancel() } catch { /* 忽略 */ }
-  reader = null
   try { writer?.releaseLock() } catch { /* 忽略 */ }
+  reader = null
   writer = null
   const p = port
   port = null
@@ -74,99 +117,98 @@ export async function disconnect(): Promise<void> {
     try { await p.close() } catch { /* 忽略 */ }
   }
   currentRpm = 0
-  currentOn = false
   lastCurrent = 0
+  currentOn = false
   backendBus.emit({ type: 'serial_status', connected: false, port: '' })
 }
 
-// ── 读循环:串口字节流 -> 帧 -> telemetry 事件 ────────────────────
-async function startReadLoop(): Promise<void> {
-  if (!port || readLoopActive) return
-  readLoopActive = true
-  const assembler = new FrameAssembler(RX_CHANNELS)
-  while (port && port.readable && readLoopActive) {
-    reader = port.readable.getReader()
+// ── 遥测轮询(50ms 读 0x03) ───────────────────────────────────────
+async function readTelemetry(): Promise<void> {
+  const resp = await transact(buildReadHoldingRegs(slave, ADDR.ACTUAL_SPEED, 4), 5 + 8)
+  const regs = parseReadHolding(resp, slave, 4)
+  const rpm = regsToFloat32(regs[0], regs[1])
+  const current = regsToFloat32(regs[2], regs[3])
+  currentRpm = rpm
+  lastCurrent = current
+  backendBus.emit({
+    type: 'telemetry',
+    rpm,
+    current,
+    seriesRpm: [rpm],
+    seriesIa: [current]
+  })
+}
+
+async function pollingLoop(): Promise<void> {
+  while (port && port.readable && pollingActive) {
     try {
-      while (true) {
-        const { value, done } = await reader.read()
-        if (done) break
-        if (!value || value.length === 0) continue
-        // 原始字节 -> HEX 视图
-        hexBus.emit(value)
-        // 字节流 -> 帧
-        const frames = assembler.feed(value)
-        for (const frame of frames) {
-          // frame: Float64Array[] 每通道一列(600 点)
-          const ia = frame[0]
-          const rpm = frame[1]
-          if (!ia || !rpm || ia.length === 0) continue
-          const lastIa = ia[ia.length - 1]
-          const lastRpm = rpm[rpm.length - 1]
-          currentRpm = lastRpm
-          lastCurrent = lastIa
-          backendBus.emit({
-            type: 'telemetry',
-            rpm: lastRpm,
-            current: lastIa,
-            seriesRpm: Array.from(rpm),
-            seriesIa: Array.from(ia)
-          })
-        }
-      }
+      await enqueue(readTelemetry)
     } catch (e) {
-      backendBus.emit({ type: 'error', message: String(e instanceof Error ? e.message : e) })
-      break
-    } finally {
-      try { reader.releaseLock() } catch { /* 忽略 */ }
+      backendBus.emit({ type: 'error', message: `遥测读失败: ${String(e instanceof Error ? e.message : e)}` })
     }
-  }
-  readLoopActive = false
-  // 流结束(设备拔出/取消):若仍视为连接,标记断开
-  if (port && readLoopActive === false) {
-    // 手动断开走 disconnect(),此处只处理异常断流
-    if (port.readable === null) {
-      backendBus.emit({ type: 'serial_status', connected: false, port: '' })
-    }
+    await new Promise((r) => setTimeout(r, 50))
   }
 }
 
-// ── 命令执行 ─────────────────────────────────────────────────────
+function startPolling(): void {
+  pollingActive = true
+  pollingLoop()
+}
+
+// ── 命令执行(写寄存器/线圈) ─────────────────────────────────────
 /**
- * 执行电机指令,返回结果字符串。
- * 与 Electron 版语义一致:set_speed 同时置 motor_on=1(host Mux 行为);
- * 成功写串口后广播 executed 事件(驱动 CommandLock 解锁)。
+ * 执行电机指令。语义对齐协议文档:
+ *  set_speed → 写 SPEED_SETPOINT(u16); set_motor_state → 写 COIL_MOTOR_EN;
+ *  emergency_stop → 写 COIL_EMERGENCY_STOP; write_pid_* → 写保持寄存器(float32)。
+ * 成功广播 executed 事件,驱动 CommandLock 解锁。
  */
 export async function sendCommand(
   action: string,
   payload: Record<string, unknown>
 ): Promise<string> {
   if (!port || !port.writable) throw new Error('未连接串口')
-  let bytes: Uint8Array
   if (action === 'set_speed') {
     const rpm = Math.max(0, Math.min(RPM_LIMIT, Math.round(Number(payload.rpm) || 0)))
     currentRpm = rpm
-    currentOn = true // 与 python 版 set_speed -> send_command(rpm, on=1) 一致
-    bytes = encodeCommand([currentRpm, 1])
-  } else if (action === 'set_motor_state') {
-    const on = payload.on ? 1 : 0
-    currentOn = !!payload.on
-    bytes = encodeCommand([currentRpm, on])
-  } else {
-    throw new Error(`未知指令: ${action}`)
+    await enqueue(() =>
+      transact(buildWriteSingleReg(slave, ADDR.SPEED_SETPOINT, rpm), 8)
+    )
+    const result = `OK rpm=${rpm}`
+    backendBus.emit({ type: 'executed', action, result })
+    return result
   }
-  writer = port.writable.getWriter()
-  try {
-    await writer.write(bytes)
-  } finally {
-    try { writer.releaseLock() } catch { /* 忽略 */ }
-    writer = null
+  if (action === 'set_motor_state') {
+    const on = !!payload.on
+    currentOn = on
+    await enqueue(() => transact(buildWriteSingleCoil(slave, ADDR.COIL_MOTOR_EN, on), 8))
+    const result = `OK motor_on=${on ? 1 : 0}`
+    backendBus.emit({ type: 'executed', action, result })
+    return result
   }
-  const result = `OK rpm=${currentRpm} on=${currentOn ? 1 : 0}`
-  backendBus.emit({ type: 'executed', action, result })
-  return result
+  if (action === 'emergency_stop') {
+    await enqueue(() => transact(buildWriteSingleCoil(slave, ADDR.COIL_EMERGENCY_STOP, true), 8))
+    const result = 'OK emergency_stop'
+    backendBus.emit({ type: 'executed', action, result })
+    return result
+  }
+  // write_pid_<REG>:payload = { value:number } 写单个 float32 寄存器
+  const pidMatch = action.match(/^write_pid_(.+)$/)
+  if (pidMatch) {
+    const regName = pidMatch[1]
+    const addr = (ADDR as Record<string, number>)[regName]
+    if (addr === undefined) throw new Error(`未知 PID 地址: ${regName}`)
+    const f = Number(payload.value)
+    if (!Number.isFinite(f)) throw new Error('PID 值必须为有效数字')
+    const [hi, lo] = float32ToRegs(f)
+    await enqueue(() => transact(buildWriteMultiRegs(slave, addr, [hi, lo]), 8))
+    const result = `OK ${regName}=${f}`
+    backendBus.emit({ type: 'executed', action, result })
+    return result
+  }
+  throw new Error(`未知指令: ${action}`)
 }
 
-/** 获取当前状态快照(与 python 版 get_status 语义一致) */
+/** 获取当前状态快照(来自最近一次遥测轮询) */
 export function getStatus(): string {
-  return `rpm=${currentRpm.toFixed(0)} current=${lastCurrent.toFixed(2)}`
+  return `rpm=${currentRpm.toFixed(0)} current=${lastCurrent.toFixed(2)} on=${currentOn ? 1 : 0}`
 }

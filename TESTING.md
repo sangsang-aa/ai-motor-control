@@ -72,7 +72,7 @@ npm test                 # 单元测试
 ### 5. 示波器接收串口数据、模拟数据输入、输出正常波形
 
 **文件**: `e2e/serial-scope.spec.ts` + `e2e/mockSerial.ts`
-`mockSerial.ts` 用 `buildWaveformBytes()` 生成**真实的 `'SS'+600×[Ia,Speed]+'EE'` 帧字节**,注入 fake serial 周期吐出,走完整链路(连接→readLoop→FrameAssembler→telemetry→scopeStore→SVG)。
+`mockSerial.ts` 把 `navigator.serial` 模拟为 **Modbus RTU 从站**(内置 `ACTUAL_SPEED=2000`、`ACTUAL_CURRENT=3.0` 的 float32 寄存器),上位机每 50ms 轮询 `0x03` 读遥测 → telemetry → scopeStore → SVG。
 
 | 用例 | 验收标准 |
 |---|---|
@@ -93,15 +93,17 @@ npm test                 # 单元测试
 ## Mock 方案(测试不依赖真实硬件/真实 LLM)
 
 - **LLM**:Playwright `page.route('**/api/llm')` 拦截,返回固定 SSE 流(text / tool_call / error)。见 `e2e/chat.spec.ts`、`e2e/tool-call.spec.ts`。
-- **串口**:`e2e/mockSerial.ts` 的 `fakeSerialInitScript()` 注入 fake `navigator.serial`(用 `Object.defineProperty` 覆盖 Chromium 只读 getter)。fake 端口 open 后:
-  - `readable` 每 50ms 吐一帧真实 `'SS'...'EE'` 字节
-  - `writable` 把写入字节记录到 `window.__sfWrites`(供断言 `sendCommand` 编码)
+- **串口**:`e2e/mockSerial.ts` 的 `fakeSerialInitScript()` 注入 fake `navigator.serial`(用 `Object.defineProperty` 覆盖 Chromium 只读 getter)。fake 端口模拟 **Modbus 从站**(处理功能码 `01/03/05/06/10`,内含 CRC 校验),收到写入请求即生成对应响应:
+  - `writable` 把请求字节记录到 `window.__sfWrites`(供断言 `sendCommand` 的 Modbus 帧)
+  - `readable` 收到请求后 enqueue 响应(供轮询 `0x03` 读遥测)
   - `getInfo()` 返回 `usbVendorId:0x2345, usbProductId:0x6789`(用于设备名断言)
-- **协议层**:单测直接测 `lib/serial/protocol.ts`,与 python 版 `mcb_host` 行为逐字节对齐。
+- **协议层**:单测直接测 `lib/serial/modbus.ts`(CRC16、帧构建/解析、float32 编解码),与 `docs/modbus_rtu_protocol.md` 对齐。
 
 ## 关键约定(防止回归)
 
-- `set_speed` 同时置 `motor_on=1`(host Mux 行为);结果文本 `OK rpm=<rpm> on=<0|1>`
+- `set_speed` → 写 `SPEED_SETPOINT` 保持寄存器(0x06/0x10);结果文本 `OK rpm=<rpm>`
+- `set_motor_state` → 写 `COIL_MOTOR_EN`(0x05);`emergency_stop` → 写 `COIL_EMERGENCY_STOP`
+- PID 参数(`write_pid_<REG>`)→ 写保持寄存器(float32,2 寄存器,big-endian)
 - LLM 无条件发 `turn_end`(即使只有 tool_call,否则 inflight 锁死)
 - 单测中 `createSession` 生成唯一 id(计数器),避免同毫秒撞 id
 - `scopeStore.applyFrame` 在 buffer 数与通道数不匹配时重建并继续(不丢首帧)

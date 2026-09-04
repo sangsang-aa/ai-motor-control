@@ -11,6 +11,7 @@ import { Composer } from './Composer'
 import { DisconnectBanner } from './DisconnectBanner'
 import { EStopButton } from './EStopButton'
 import { CommandLockBanner } from './CommandLockBanner'
+import { PidPanel } from './PidPanel'
 import { useSessionStore } from '@/lib/stores/sessionStore'
 import { useMotorStore } from '@/lib/stores/motorStore'
 import { useCommandLock } from '@/lib/stores/commandLockStore'
@@ -118,6 +119,7 @@ export const ChatApp: React.FC = () => {
         <Sidebar />
         <div className="flex-1 flex flex-col min-w-0">
           <ChatPane />
+          <PidPanel />
           <Composer onSend={handleSend} disabled={inflight || lock.status !== 'idle'} locked={lock.status !== 'idle'} />
         </div>
       </div>

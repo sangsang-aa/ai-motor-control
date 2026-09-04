@@ -7,7 +7,7 @@
 **为什么重构**(与用户确认的决策,勿偏离):
 
 1. **先写齐 Web 版基本功能,再封装 Electron 桌面版** — 这是本分支的最终路线:当前阶段只做 Web(Next.js),功能齐备后加 Electron 壳层打包为桌面应用。
-2. **砍掉 Python 后端** — 串口协议层已用纯 TS 重写(`lib/serial/protocol.ts`),浏览器通过 **Web Serial API** 直连电机,不再需要 pyserial/numpy 子进程。
+2. **砍掉 Python 后端** — 串口协议层已用纯 TS 重写(`lib/serial/modbus.ts`,Modbus RTU),浏览器通过 **Web Serial API** 直连 DSP 下位机,不再需要 pyserial/numpy 子进程。
 3. **LLM 走同源代理** — `/api/llm` 服务端代理保护 API key + 绕 CORS,key 只存 `.env.local`(不入库),浏览器永不接触。
 4. **纯客户端渲染** — 页面全部 `'use client'`,禁止新增 SSR/Server Component 依赖(便于后续 Electron 封装,见下)。
 
@@ -30,7 +30,7 @@ Next.js (App Router, 纯客户端渲染)
 └── lib/
     ├── types.ts          → 跨层类型(与 Electron 版 src/shared/types.ts 同源)
     ├── bus.ts            → 事件总线:backendBus(串口事件)/llmBus(LLM 事件)/hexBus(原始字节)
-    ├── serial/protocol.ts→ 串口协议纯 TS 移植(唯一权威,原 python_backend/mcb_host 已删除)
+    ├── serial/modbus.ts → Modbus RTU 协议层(CRC16/01/03/05/06/0F/10 帧 + float32 编解码 + 寄存器/线圈地址表)
     ├── serial/motorController.ts → Web Serial 适配 + 命令执行 + telemetry 事件
     ├── llm/llmClient.ts  → SSE 解析(浏览器端,从 Electron llmProxy 移植)
     ├── llm/tools.ts      → 工具定义 + 系统提示词(前后端共用)
@@ -46,12 +46,13 @@ Next.js (App Router, 纯客户端渲染)
 - **示波器**:telemetry 帧 → `ScopeApp` 交错 Ia/RPM → `scopeStore.applyFrame(payload, 2)` → `ScopeChart`(SVG rAF)。原始字节 → `hexBus` → `appendHex`。
 - **持久化**:会话存 localStorage(`mototune.sessions`),示波器通道配置存 localStorage(`scope.*`)。
 
-## 串口协议(不可改,与固件强绑定)
+## 串口协议(Modbus RTU,与固件强绑定,见 docs/modbus_rtu_protocol.md)
 
-- TX: `[speed_rpm, motor_on]` 2× uint16 LE,无帧头
-- RX: `'SS'`(0x53 0x53) + 600×[Ia counts, Speed RPM] uint16 LE + `'EE'`(0x45 0x45)
-- ch2(Speed)按 int16 有符号解释;工程值 = raw × scale + offset
-- `set_speed` 同时置 motor_on=1(host Mux 行为,与 python 版一致)
+- 保持寄存器(功能码 03/06/10):`SPEED_SETPOINT`(0x0000)、PID 双环参数(0x0100 SPD / 0x0110 CUR)、状态遥测(0x1000)
+- 线圈(功能码 01/05/0F,独立地址空间):`COIL_MOTOR_EN`(0x0000)、`COIL_FAULT_RESET`(0x0001)、`COIL_EMERGENCY_STOP`(0x0002)
+- float32 参数占 2 寄存器,big-endian(高字低地址);CRC-16/MODBUS
+- 遥测由主站每 50ms 轮询 0x03 读回(无持续推送帧)→ 示波器数据源
+- 波特率默认 1500000,可运行时动态调整
 - 转速上限 6000 RPM(安全约束,超限 clamp)
 
 ## Web Serial 已知约束(坑)
