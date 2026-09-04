@@ -13,8 +13,8 @@ async function gotoChat(page: Page) {
 test('页面正常启动并渲染核心元素', async ({ page }) => {
   await gotoChat(page)
   await expect(page.locator('.topbar')).toBeVisible()
-  // 品牌连线
-  await expect(page.locator('header.topbar')).toContainText('MOTOTUNE')
+  // 品牌连线(标题已挪到侧栏顶部)
+  await expect(page.locator('aside.sidebar')).toContainText('MOTOTUNE')
   // Topbar 连接按钮(未连接时)
   await expect(page.locator('header.topbar button', { hasText: '连接串口' })).toBeVisible()
   // 欢迎文案
@@ -36,10 +36,10 @@ test('Topbar 波特率输入可交互 + 按钮可点击', async ({ page }) => {
 
 test('侧栏可折叠与展开', async ({ page }) => {
   await gotoChat(page)
-  await page.locator('button[title="折叠侧栏"]').click()
+  await page.locator('button[title="收起侧栏"]').click()
   await expect(page.locator('button[title="展开侧栏"]')).toBeVisible()
   await page.locator('button[title="展开侧栏"]').click()
-  await expect(page.locator('button[title="折叠侧栏"]')).toBeVisible()
+  await expect(page.locator('button[title="收起侧栏"]')).toBeVisible()
 })
 
 test('侧栏可拖拽调整宽度', async ({ page }) => {

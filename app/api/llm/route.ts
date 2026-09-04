@@ -16,20 +16,23 @@ export const runtime = 'nodejs'
 export async function POST(req: NextRequest) {
   let text: string
   let history: Message[]
+  let cfg: { baseUrl?: string; apiKey?: string; model?: string } = {}
   try {
     const body = await req.json()
     text = String(body.text ?? '')
     history = Array.isArray(body.history) ? body.history : []
+    cfg = body.config && typeof body.config === 'object' ? body.config : {}
   } catch {
     return new Response('invalid body', { status: 400 })
   }
   if (!text.trim()) return new Response('empty text', { status: 400 })
 
-  const baseUrl = process.env.LLM_BASE_URL
-  const apiKey = process.env.LLM_API_KEY
-  const model = process.env.LLM_MODEL || 'qwen-plus'
+  // 前端设置优先(用户可在设置面板配置 AI 供应商),否则回退服务端 env
+  const baseUrl = cfg.baseUrl || process.env.LLM_BASE_URL
+  const apiKey = cfg.apiKey || process.env.LLM_API_KEY
+  const model = cfg.model || process.env.LLM_MODEL || 'qwen-plus'
   if (!baseUrl || !apiKey) {
-    return new Response('LLM 未配置: 请复制 .env.example 为 .env.local 并填入 LLM_API_KEY', { status: 500 })
+    return new Response('LLM 未配置: 请在 设置 中填写 AI 供应商 API,或配置 .env.local 的 LLM_API_KEY', { status: 500 })
   }
 
   const messages = [

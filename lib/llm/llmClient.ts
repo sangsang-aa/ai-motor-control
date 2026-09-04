@@ -4,6 +4,7 @@
  */
 
 import type { Message, LlmEvent } from '../types'
+import { loadSettings } from '../settings'
 
 let controller: AbortController | null = null
 
@@ -23,11 +24,17 @@ export async function sendMessage(
   controller = new AbortController()
   const signal = controller.signal
   try {
+    const cfg = loadSettings()
+    const config = {
+      baseUrl: cfg.baseUrl || undefined,
+      apiKey: cfg.apiKey || undefined,
+      model: cfg.model || undefined
+    }
     const response = await fetch('/api/llm', {
       method: 'POST',
       signal,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, history })
+      body: JSON.stringify({ text, history, config })
     })
     if (!response.ok) {
       const msg = await response.text().catch(() => '')

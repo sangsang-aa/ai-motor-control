@@ -3,7 +3,7 @@
 
 'use client'
 
-import React, { useEffect, useCallback } from 'react'
+import React, { useEffect, useCallback, useState } from 'react'
 import { Topbar } from './Topbar'
 import { Sidebar } from './Sidebar'
 import { ChatPane } from './ChatPane'
@@ -11,11 +11,15 @@ import { Composer } from './Composer'
 import { DisconnectBanner } from './DisconnectBanner'
 import { EStopButton } from './EStopButton'
 import { CommandLockBanner } from './CommandLockBanner'
+import { SettingsPanel } from './SettingsPanel'
+import { SearchDialog } from './SearchDialog'
 import { useSessionStore } from '@/lib/stores/sessionStore'
 import { useMotorStore } from '@/lib/stores/motorStore'
 import { useCommandLock } from '@/lib/stores/commandLockStore'
 import { backendBus, llmBus } from '@/lib/bus'
 import { sendMessage, abort as abortLlm } from '@/lib/llm/llmClient'
+import { useLangStore } from '@/lib/i18n'
+import { loadSettings } from '@/lib/settings'
 
 let _pendingToolCall: { name: string; args: Record<string, unknown> } | null = null
 export function setPendingToolCall(n: string, a: Record<string, unknown>) {
@@ -31,6 +35,9 @@ export const ChatApp: React.FC = () => {
   const { disconnectMessage, connected, applyEvent } = useMotorStore()
   const inflight = useSessionStore((s) => s.inflight)
   const lock = useCommandLock()
+  const setLang = useLangStore((s) => s.setLang)
+  const [showSettings, setShowSettings] = useState(false)
+  const [showSearch, setShowSearch] = useState(false)
 
   useEffect(() => {
     const u1 = backendBus.on((e) => {
@@ -74,9 +81,9 @@ export const ChatApp: React.FC = () => {
     }
   }, [applyEvent, lock])
 
-  // 启动时从 localStorage 恢复会话
   useEffect(() => {
     useSessionStore.getState().hydrate()
+    setLang(loadSettings().language)
   }, [])
 
   const handleSend = useCallback(
@@ -115,13 +122,15 @@ export const ChatApp: React.FC = () => {
       {lock.status !== 'idle' && <CommandLockBanner />}
       {disconnectMessage && !connected && <DisconnectBanner />}
       <div className="flex-1 flex overflow-hidden">
-        <Sidebar />
+        <Sidebar onOpenSettings={() => setShowSettings(true)} onOpenSearch={() => setShowSearch(true)} />
         <div className="flex-1 flex flex-col min-w-0">
           <ChatPane />
           <Composer onSend={handleSend} disabled={inflight || lock.status !== 'idle'} locked={lock.status !== 'idle'} />
         </div>
       </div>
       <EStopButton onEStop={() => lock.unlock()} />
+      {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
+      {showSearch && <SearchDialog onClose={() => setShowSearch(false)} />}
     </div>
   )
 }
