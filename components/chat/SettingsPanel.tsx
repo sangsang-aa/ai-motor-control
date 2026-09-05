@@ -39,22 +39,22 @@ export const SettingsPanel: React.FC<{ onClose: () => void }> = ({ onClose }) =>
   }
 
   const overlay: React.CSSProperties = {
-    position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(10,22,40,0.7)',
+    position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(13,13,13,0.8)',
     display: 'flex', alignItems: 'center', justifyContent: 'center'
   }
   const box: React.CSSProperties = {
-    background: '#121e33', border: '1px solid #1e3454', borderRadius: 12,
-    padding: '20px 24px', width: 420, maxWidth: '90vw', color: '#e8ecf1'
+    background: '#121212', border: '1px solid #2a2a2a', borderRadius: 12,
+    padding: '20px 24px', width: 420, maxWidth: '90vw', color: '#ececec'
   }
-  const label: React.CSSProperties = { fontSize: 12, color: '#8899aa', marginBottom: 4, display: 'block' }
-  const input: React.CSSProperties = { width: '100%', background: '#0d1f35', border: '1px solid #1e3454', borderRadius: 6, padding: '8px 10px', color: '#e8ecf1', fontSize: 13 }
+  const label: React.CSSProperties = { fontSize: 12, color: '#9aa0a6', marginBottom: 4, display: 'block' }
+  const input: React.CSSProperties = { width: '100%', background: '#1c1c1c', border: '1px solid #2a2a2a', borderRadius: 6, padding: '8px 10px', color: '#ececec', fontSize: 13 }
 
   return (
     <div style={overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div style={box}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <span style={{ fontSize: 16, fontWeight: 700 }}>{t(lang, 'settingsTitle')}</span>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#8899aa', cursor: 'pointer', fontSize: 18 }}>✕</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#9aa0a6', cursor: 'pointer', fontSize: 18 }}>✕</button>
         </div>
 
         <div style={{ marginBottom: 14 }}>
@@ -91,7 +91,7 @@ export const SettingsPanel: React.FC<{ onClose: () => void }> = ({ onClose }) =>
           <button onClick={onClose} className="btn-ghost text-xs">{t(lang, 'close')}</button>
           <button onClick={handleSave} className="btn-primary text-xs">{saved ? '✓ ' + t(lang, 'save') : t(lang, 'save')}</button>
         </div>
-        <div style={{ marginTop: 10, fontSize: 10, color: '#556677', lineHeight: 1.7 }}>
+        <div style={{ marginTop: 10, fontSize: 10, color: '#6b7075', lineHeight: 1.7 }}>
           填写后发送给 /api/llm 的请求会优先使用此处配置;留空则回退服务端 .env.local。API Key 保存在本机 localStorage。
         </div>
       </div>
