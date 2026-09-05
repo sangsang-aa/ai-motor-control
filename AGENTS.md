@@ -6,6 +6,7 @@
 ## HIERARCHY
 - `lib/AGENTS.md` — 核心逻辑域(串口/LLM/store/设置)
 - `components/AGENTS.md` — 业务组件域(chat/scope)
+- `docs/` — 说明文档区块(DESIGN/TESTING/modbus 协议/AI 调参记录/界面参考)
 
 ---
 

@@ -13,8 +13,8 @@ async function gotoChat(page: Page) {
 test('页面正常启动并渲染核心元素', async ({ page }) => {
   await gotoChat(page)
   await expect(page.locator('.topbar')).toBeVisible()
-  // 品牌连线(标题已挪到侧栏顶部)
-  await expect(page.locator('aside.sidebar')).toContainText('MOTOTUNE')
+  // 品牌商标(侧栏顶部 FluxPilot 图)
+  await expect(page.locator('aside.sidebar img[src="/trademark.png"]')).toBeVisible()
   // Topbar 连接按钮(未连接时)
   await expect(page.locator('header.topbar button', { hasText: '连接串口' })).toBeVisible()
   // 欢迎文案

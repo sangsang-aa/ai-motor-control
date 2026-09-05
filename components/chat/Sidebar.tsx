@@ -49,8 +49,7 @@ export const Sidebar: React.FC<Props> = ({ onOpenSettings, onOpenSearch }) => {
     <div style={{ position: 'relative', width: 240, flexShrink: 0, display: 'flex' }}>
       <aside className="sidebar" style={{ width: 240, flex: 1, background: '#121212' }}>
         <div className="sb-brand">
-          <span className="logo" />
-          <span className="name">{t(lang, 'appTitle')}</span>
+          <img src="/trademark.png" alt="FluxPilot" style={{ height: 30, width: 'auto', maxWidth: 120, objectFit: 'contain', flexShrink: 0 }} />
           <span style={{ flex: 1 }} />
           <button onClick={onOpenSearch} style={{ color: '#9aa0a6', fontSize: 14, cursor: 'pointer', background: 'none', border: 'none', padding: '0 2px' }} title={t(lang, 'search')}>🔍</button>
           <button onClick={() => setCollapsed(true)} style={{ color: '#9aa0a6', fontSize: 15, cursor: 'pointer', background: 'none', border: 'none', padding: '0 2px' }} title={t(lang, 'hideSidebar')}>◀</button>
