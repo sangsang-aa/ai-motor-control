@@ -1,5 +1,5 @@
-// 主区顶部条 — Altior 风格:左侧模型下拉,右侧串口状态 + 波特率 + 转速电流。
-// 保留可测选择器:header.topbar / header.topbar button / header.topbar input / .topbar-stat。
+// 主区顶部条 — Altior 风格:左侧模型下拉,右侧串口状态 + 波特率 + 连接按钮。
+// 转速/电流已迁至示波器"实时数据"区。可测选择器:header.topbar / header.topbar button / header.topbar input。
 
 'use client'
 
