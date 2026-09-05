@@ -13,7 +13,8 @@ async function gotoChat(page: Page) {
 test('页面正常启动并渲染核心元素', async ({ page }) => {
   await gotoChat(page)
   await expect(page.locator('.topbar')).toBeVisible()
-  // 品牌商标(侧栏顶部 FluxPilot 图)
+  // 品牌商标(侧栏顶部 FluxPilot 图标 + 文字)
+  await expect(page.locator('aside.sidebar img[src="/trademark_image.png"]')).toBeVisible()
   await expect(page.locator('aside.sidebar img[src="/trademark.png"]')).toBeVisible()
   // Topbar 连接按钮(未连接时)
   await expect(page.locator('header.topbar button', { hasText: '连接串口' })).toBeVisible()
