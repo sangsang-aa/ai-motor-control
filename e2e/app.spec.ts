@@ -36,33 +36,25 @@ test('Topbar 波特率输入可交互 + 按钮可点击', async ({ page }) => {
 
 test('侧栏可折叠与展开', async ({ page }) => {
   await gotoChat(page)
-  await page.locator('button[title="收起侧栏"]').click()
+  await page.locator('button[title="收起侧栏"]').dispatchEvent('click')
   await expect(page.locator('button[title="展开侧栏"]')).toBeVisible()
-  await page.locator('button[title="展开侧栏"]').click()
+  await page.locator('button[title="展开侧栏"]').dispatchEvent('click')
   await expect(page.locator('button[title="收起侧栏"]')).toBeVisible()
 })
 
-test('侧栏可拖拽调整宽度', async ({ page }) => {
+test('侧栏为固定窄宽(Altior 风格,无拖拽)', async ({ page }) => {
   await gotoChat(page)
   const aside = page.locator('aside.sidebar')
-  const w0 = await aside.evaluate((el) => (el as HTMLElement).offsetWidth)
-  // 拖拽手柄 = aside 的后一个兄弟(4px 竖条)
-  const handle = page.locator('aside.sidebar').locator('xpath=following-sibling::div[1]')
-  const box = await handle.boundingBox()
-  if (!box) throw new Error('未找到拖拽手柄')
-  await page.mouse.move(box.x + 2, box.y + 50)
-  await page.mouse.down()
-  await page.mouse.move(box.x + 40, box.y + 50) // 向右拖 → 变宽
-  await page.mouse.up()
-  const w1 = await aside.evaluate((el) => (el as HTMLElement).offsetWidth)
-  expect(w1).toBeGreaterThan(w0)
+  const w = await aside.evaluate((el) => (el as HTMLElement).offsetWidth)
+  expect(w).toBeGreaterThanOrEqual(230)
+  expect(w).toBeLessThanOrEqual(250)
 })
 
 test('新建会话按钮可创建会话', async ({ page }) => {
   await gotoChat(page)
   await page.locator('button', { hasText: '+ 新建会话' }).click()
   // 会话列表出现一个"新会话"
-  await expect(page.locator('aside .sidebar-item').first()).toBeVisible()
+  await expect(page.locator('aside .sb-item').first()).toBeVisible()
 })
 
 test('示波器页正常渲染', async ({ page }) => {

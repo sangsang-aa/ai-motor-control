@@ -26,7 +26,7 @@ test('对话正常流式回复,无 error 气泡(无卡死)', async ({ page }) =>
   })
   await gotoChat(page)
   await page.locator('textarea').fill('请设置转速')
-  await page.locator('button', { hasText: '发送' }).click()
+  await page.locator('.composer-send').click()
   // 等待回复气泡出现(流式)
   const bubble = page.locator('.msg-bbl.asst')
   await expect(bubble).toContainText('好的，我已收到你的请求。')
@@ -42,7 +42,7 @@ test('错误回答时显示 error 文案而非 fake 成功', async ({ page }) =>
   })
   await gotoChat(page)
   await page.locator('textarea').fill('测试错误')
-  await page.locator('button', { hasText: '发送' }).click()
+  await page.locator('.composer-send').click()
   // 应出现 error 气泡(⚠ 开头),而不是正常回复
   await expect(page.locator('.msg-bbl', { hasText: '⚠' }).first()).toBeVisible()
 })
@@ -53,7 +53,7 @@ test('对话记录到 localStorage(刷新后保留)', async ({ page }) => {
   })
   await gotoChat(page)
   await page.locator('textarea').fill('这条消息要被我记录下来')
-  await page.locator('button', { hasText: '发送' }).click()
+  await page.locator('.composer-send').click()
   await expect(page.locator('.msg-bbl.asst')).toContainText('好的，我已收到你的请求。')
   // localStorage 中有会话
   const raw = await page.evaluate(() => localStorage.getItem('mototune.sessions'))
@@ -61,7 +61,7 @@ test('对话记录到 localStorage(刷新后保留)', async ({ page }) => {
   // 刷新后侧栏仍保留该会话(标题自动命名自首条消息)
   await page.reload()
   await page.waitForSelector('aside.sidebar')
-  const sidebar = await page.locator('aside .sidebar-item').first().textContent()
+  const sidebar = await page.locator('aside .sb-item').first().textContent()
   expect(sidebar).toContain('这条消息要被我记录下来'.slice(0, 10))
 })
 

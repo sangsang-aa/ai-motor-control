@@ -33,7 +33,7 @@ test('搜索对话弹窗:按关键词过滤并跳转', async ({ page }) => {
   const mkSession = async (text: string) => {
     await page.locator('button', { hasText: '+ 新建会话' }).click()
     await page.locator('textarea').fill(text)
-    await page.locator('button', { hasText: '发送' }).click()
+    await page.locator('.composer-send').click()
   }
   await mkSession('帮我控制电机加速')
   await mkSession('帮我导出报告')
@@ -44,5 +44,5 @@ test('搜索对话弹窗:按关键词过滤并跳转', async ({ page }) => {
   await expect(results.first()).toBeVisible()
   // 点击跳转到该会话
   await results.first().click()
-  await expect(page.locator('aside .sidebar-item.on').first()).toBeVisible()
+  await expect(page.locator('aside .sb-item.on').first()).toBeVisible()
 })

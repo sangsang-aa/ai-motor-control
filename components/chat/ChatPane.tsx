@@ -10,8 +10,10 @@ import { consumePendingToolCall } from './ChatApp'
 import { useCommandLock } from '@/lib/stores/commandLockStore'
 import { sendCommand } from '@/lib/serial/motorController'
 import { COMMAND_CONFIRM_TIMEOUT } from '@/lib/config'
+import { useLangStore, t } from '@/lib/i18n'
 
 export const ChatPane: React.FC = () => {
+  const lang = useLangStore((s) => s.lang)
   const { sessions, currentId, inflight } = useSessionStore()
   const toolCallVersion = useMotorStore((s) => s.toolCallVersion)
   const sr = useRef<HTMLDivElement>(null)
@@ -64,9 +66,11 @@ export const ChatPane: React.FC = () => {
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      <div ref={sr} className="chat-scroll">
+      <div ref={sr} className="chat-scroll" style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         {msgs.length === 0 && !inflight && (
-          <div className="welcome"><div className="t" style={{ fontSize: 32, fontWeight: 800, letterSpacing: '0.08em' }}>MOTOTUNE</div><div className="h" style={{ fontSize: 16, marginTop: 12 }}>您好，今天要干什么？</div></div>
+          <div className="welcome" style={{ flex: 1, justifyContent: 'center' }}>
+            <div className="t" style={{ fontSize: 24, fontWeight: 600 }}>{t(lang, 'welcome')}</div>
+          </div>
         )}
         {msgs.map((m) => <div key={m.id} className={`msg-row ${rc(m.role)}`}><div className={`msg-bbl ${rc(m.role)}`}>{m.content}{m.streaming && <span className="stream-dot" />}</div></div>)}
         {pt && !expired && <ConfirmCard toolName={pt.name} arguments={pt.args} onConfirm={confirm} onIgnore={ignore} timeout={COMMAND_CONFIRM_TIMEOUT} />}

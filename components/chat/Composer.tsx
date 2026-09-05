@@ -1,8 +1,10 @@
-// 输入框 — 从 Electron 版原样迁移
+// 输入框 — Altior 风格大圆角容器:占位 + 多行输入 + 底部工具行 + 圆形发送钮。
+// 保留可测: textarea + 发送按钮(button[hasText='发送'])。
 
 'use client'
 
 import React, { useState, useRef, useEffect } from 'react'
+import { useLangStore, t } from '@/lib/i18n'
 
 interface Props {
   onSend: (text: string) => void
@@ -11,36 +13,45 @@ interface Props {
 }
 
 export const Composer: React.FC<Props> = ({ onSend, disabled, locked }) => {
+  const lang = useLangStore((s) => s.lang)
   const [text, setText] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const send = () => {
-    const t = text.trim()
-    if (!t || disabled || locked) return
-    onSend(t)
-    setText('')
+    const tx = text.trim()
+    if (!tx || disabled || locked) return
+    onSend(tx); setText('')
   }
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
-      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px'
+      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 160) + 'px'
     }
   }, [text])
 
   return (
-    <div className="composer-bar" style={{ position: 'relative' }}>
-      {locked && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(10,22,40,0.7)', fontSize: 13, color: '#ffb340' }}>
-          请先确认或取消当前电机控制指令
-        </div>
-      )}
-      <div className="flex gap-2 items-end">
-        <textarea ref={textareaRef} value={text} onChange={(e) => setText(e.target.value)}
+    <div style={{ padding: '16px 24px 20px', display: 'flex', justifyContent: 'center' }}>
+      <div className="composer-box" style={{ position: 'relative' }}>
+        {locked && (
+          <div style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(13,13,13,0.75)', fontSize: 13, color: '#ffb340', borderRadius: 18 }}>请先确认或取消当前电机控制指令</div>
+        )}
+        <textarea
+          ref={textareaRef}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
-          placeholder={locked ? '请先确认或取消当前电机控制指令' : '输入消息... (Enter 发送, Shift+Enter 换行)'}
-          rows={1} className="input-base flex-1 resize-none min-h-[38px] max-h-[120px]" disabled={disabled || locked} />
-        <button onClick={send} disabled={disabled || locked || !text.trim()} className="btn-primary h-[38px] px-5 text-sm shrink-0">
-          {locked ? '锁定中' : disabled ? '...' : '发送'}
-        </button>
+          placeholder={locked ? '请先确认或取消当前电机控制指令' : t(lang, 'inputPlaceholder')}
+          rows={1}
+          className="composer-textarea"
+          disabled={disabled || locked}
+        />
+        <div className="composer-tools">
+          <button className="composer-tool-pill" style={{ width: 30, height: 30, padding: 0, justifyContent: 'center', borderRadius: 8 }} title="附加">＋</button>
+          <span className="composer-tool-pill">工具 <span style={{ fontSize: 9 }}>▾</span></span>
+          <span className="composer-tool-pill think">✎ 深度思考</span>
+          <button onClick={send} disabled={disabled || locked || !text.trim()} className="composer-send" title="发送">
+            ↑
+          </button>
+        </div>
       </div>
     </div>
   )
