@@ -9,7 +9,7 @@ import ChannelPanel from './ChannelPanel'
 import PauseToggle from './PauseToggle'
 import HexToggle from './HexToggle'
 import HexView from './HexView'
-import { useScopeStore } from '@/lib/stores/scopeStore'
+import { useScopeStore, autoColor } from '@/lib/stores/scopeStore'
 import { useMotorStore } from '@/lib/stores/motorStore'
 import { backendBus, hexBus } from '@/lib/bus'
 import { useLangStore, t } from '@/lib/i18n'
@@ -21,6 +21,9 @@ export const ScopeApp: React.FC = () => {
   const appendHex = useScopeStore((s) => s.appendHex)
   const [panelW, setPanelW] = useState(280)
   const showHex = useScopeStore((s) => s.showHex)
+  const channels = useScopeStore((s) => s.channels)
+  const buffers = useScopeStore((s) => s.buffers)
+  const n = useScopeStore((s) => s.n)
   const dragging = useRef(false)
 
   useEffect(() => {
@@ -74,13 +77,30 @@ export const ScopeApp: React.FC = () => {
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
           <PauseToggle />
           <HexToggle />
-          <span style={{ fontSize: 12, color: '#9aa0a6' }}>{t(lang, 'rpm')} <b style={{ color: '#2bb8a8', fontFamily: "'JetBrains Mono',Consolas,monospace" }}>{status.rpm.toFixed(0)}</b> RPM</span>
-          <span style={{ fontSize: 12, color: '#9aa0a6' }}>{t(lang, 'current')} <b style={{ color: '#2f6bff', fontFamily: "'JetBrains Mono',Consolas,monospace" }}>{status.currentIa.toFixed(2)}</b> A</span>
         </div>
       </header>
       <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
-        <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
-          {showHex ? <HexView /> : <ScopeChart />}
+        <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '8px 14px', borderBottom: '1px solid #2a2a2a', flexShrink: 0, background: '#111111' }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#ececec', marginRight: 4 }}>{t(lang, 'realtime')}</span>
+            {channels.map((ch, i) => {
+              if (!ch.enabled) return null
+              const buf = buffers[i]
+              const val = buf ? buf[n - 1] ?? 0 : 0
+              const color = ch.colorOverride || autoColor(i)
+              return (
+                <span key={ch.name + i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#9aa0a6' }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
+                  <span>{ch.label || ch.name}</span>
+                  <b style={{ color: '#ececec', fontFamily: "'JetBrains Mono',Consolas,monospace" }}>{val.toFixed(2)}</b>
+                  {ch.unit && <span style={{ fontSize: 10, color: '#6b7075' }}>{ch.unit}</span>}
+                </span>
+              )
+            })}
+          </div>
+          <div style={{ flex: 1, minHeight: 0 }}>
+            {showHex ? <HexView /> : <ScopeChart />}
+          </div>
         </div>
         <div onMouseDown={onMouseDown}
           style={{ width: 4, cursor: 'col-resize', flexShrink: 0, transition: 'background 0.15s' }}

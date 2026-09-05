@@ -64,9 +64,3 @@ test('对话记录到 localStorage(刷新后保留)', async ({ page }) => {
   const sidebar = await page.locator('aside .sb-item').first().textContent()
   expect(sidebar).toContain('这条消息要被我记录下来'.slice(0, 10))
 })
-
-test('顶栏显示转速/电流随 telemetry 更新', async ({ page }) => {
-  // 无串口时初始为 0,这里只断言顶栏 stat 存在
-  await gotoChat(page)
-  await expect(page.locator('.topbar-stat').first()).toBeVisible()
-})

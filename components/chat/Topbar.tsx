@@ -46,11 +46,6 @@ export const Topbar: React.FC = () => {
         style={{ background: connected ? 'rgba(255,59,48,0.15)' : 'rgba(43,184,168,0.12)', color: connected ? '#ff3b30' : '#2bb8a8', borderColor: connected ? 'rgba(255,59,48,0.25)' : 'rgba(43,184,168,0.3)' }}>
         {connected ? t(lang, 'disconnect') : t(lang, 'connect')}
       </button>
-
-      <div className="flex items-center gap-5" style={{ marginLeft: 8 }}>
-        <div className="topbar-stat"><span>{t(lang, 'rpm')}</span><b>{status.rpm.toFixed(0)}</b><span style={{ color: '#6b7075', fontSize: 10 }}>RPM</span></div>
-        <div className="topbar-stat"><span>{t(lang, 'current')}</span><b>{status.currentIa.toFixed(2)}</b><span style={{ color: '#6b7075', fontSize: 10 }}>A</span></div>
-      </div>
     </header>
   )
 }
