@@ -7,14 +7,13 @@
 ## 快速开始
 
 ```bash
-cp .env.example .env.local   # 填入 LLM API Key
 npm install
 npm run dev                  # http://localhost:3000
 ```
 
-> **⚠️ 必读:`.env.local` 必须填入真实 API Key 才能使用 AI 对话。**
-> 直接 `cp` 后 `.env.local` 里是占位符 `sk-xxxxxxxx`,LLM 代理会返回 401、对话报"API 连接失败"。
-> 请打开 `.env.local`,把 `LLM_API_KEY` 替换为你的真实 Key(阿里云百炼专属部署 Key 需配合对应 `LLM_BASE_URL`,两者必须来自同一个平台)。
+**配置 LLM(二选一,推荐方式一):**
+1. **设置面板(推荐,无需 .env):** 启动后点击侧栏「设置」→ 在「AI 供应商」选预设(或自定义),填入 Base URL / API Key / 模型 → 保存。配置存本机 localStorage,刷新保留。
+2. **服务端 `.env.local`(可选 fallback):** `cp .env.example .env.local` 并填入真实 `LLM_API_KEY`(配合对应的 `LLM_BASE_URL`)——仅当未在设置面板配置时生效。
 
 浏览器要求:**Chrome/Edge**(需支持 Web Serial),访问需 HTTPS 或 localhost。
 

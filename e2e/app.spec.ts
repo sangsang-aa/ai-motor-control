@@ -55,7 +55,7 @@ test('新建会话按钮可创建会话', async ({ page }) => {
   await gotoChat(page)
   await page.locator('button', { hasText: '新建对话' }).click()
   // 会话列表出现一个"新会话"
-  await expect(page.locator('aside .sb-item').first()).toBeVisible()
+  await expect(page.locator('aside nav .sb-item').first()).toBeVisible()
 })
 
 test('示波器页正常渲染', async ({ page }) => {

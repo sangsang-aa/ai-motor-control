@@ -44,5 +44,5 @@ test('搜索对话弹窗:按关键词过滤并跳转', async ({ page }) => {
   await expect(results.first()).toBeVisible()
   // 点击跳转到该会话
   await results.first().click()
-  await expect(page.locator('aside .sb-item.on').first()).toBeVisible()
+  await expect(page.locator('aside nav .sb-item.on').first()).toBeVisible()
 })

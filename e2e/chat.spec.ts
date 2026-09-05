@@ -61,6 +61,6 @@ test('对话记录到 localStorage(刷新后保留)', async ({ page }) => {
   // 刷新后侧栏仍保留该会话(标题自动命名自首条消息)
   await page.reload()
   await page.waitForSelector('aside.sidebar')
-  const sidebar = await page.locator('aside .sb-item').first().textContent()
+  const sidebar = await page.locator('aside nav .sb-item').first().textContent()
   expect(sidebar).toContain('这条消息要被我记录下来'.slice(0, 10))
 })

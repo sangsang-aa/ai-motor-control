@@ -37,26 +37,29 @@ Next.js (App Router, 纯客户端渲染)
 │   ├── page.tsx          → ChatApp(聊天主页, /)
 │   ├── scope/page.tsx    → ScopeApp(示波器, /scope)
 │   └── api/llm/route.ts  → LLM 代理(唯一服务端代码)
-├── components/chat/      → Topbar/Sidebar/ChatPane/Composer/ConfirmCard/EStop/横幅
-├── components/scope/     → ScopeChart/ChannelPanel/HexView/Pause/HexToggle
+├── components/chat/      → ChatApp/Topbar/Sidebar/ChatPane/Composer/ConfirmCard/EStop/横幅 + SettingsPanel/SearchDialog
+├── components/scope/     → ScopeApp(带"实时数据"区)/ScopeChart/ChannelPanel/HexView/Pause/HexToggle
 └── lib/
-    ├── types.ts          → 跨层类型(与 Electron 版 src/shared/types.ts 同源)
-    ├── bus.ts            → 事件总线:backendBus(串口事件)/llmBus(LLM 事件)/hexBus(原始字节)
-    ├── serial/modbus.ts → Modbus RTU 协议层(CRC16/01/03/05/06/0F/10 帧 + float32 编解码 + 寄存器/线圈地址表)
-    ├── serial/motorController.ts → Web Serial 适配 + 命令执行 + telemetry 事件
-    ├── llm/llmClient.ts  → SSE 解析(浏览器端,从 Electron llmProxy 移植)
-    ├── llm/tools.ts      → 工具定义 + 系统提示词(前后端共用)
-    ├── report.ts         → 会话报告导出(Blob 下载,替代 Electron 文件系统版)
-    └── stores/           → 4 个 zustand store(从 Electron 版迁移,持久化改 localStorage)
+    ├── types.ts          → 跨层类型(BackendEvent/LlmEvent/Session/Message/MotorStatus)
+    ├── bus.ts            → 事件总线:backendBus(串口)/llmBus(LLM)/hexBus(原始字节)
+    ├── config.ts         → 常量 DEFAULT_BAUD/RPM_LIMIT/COMMAND_CONFIRM_TIMEOUT
+    ├── settings.ts       → localStorage 设置(语言/AI 供应商/baseUrl/apiKey/model)
+    ├── i18n.ts           → 中/英字典 + useLangStore(响应式切换)
+    ├── serial/modbus.ts → Modbus RTU 协议层(CRC16/01/03/05/06/0F/10 帧 + float32 编解码 + 地址表 ADDR/FC)
+    ├── serial/motorController.ts → Web Serial 适配 + 串行事务队列 + 写命令 + 50ms 轮询遥测
+    ├── llm/llmClient.ts  → SSE 解析 + abort(浏览器端)
+    ├── llm/tools.ts      → 工具定义 TOOLS + 系统提示词 SYSTEM_PROMPT(前后端共用)
+    ├── report.ts         → 会话报告导出(Blob 下载)
+    └── stores/           → session/motor/commandLock/scope 4 个 zustand store(持久化改 localStorage)
 ```
 
 ## 数据流
 
 - **事件**:`motorController`(串口)→ `backendBus` → `ChatApp`/`ScopeApp` 订阅 → store。替代 Electron 的 `motor:event` 广播。
 - **LLM**:Composer → `llmClient.sendMessage` → `llmBus` → `ChatApp` 统一处理(text 追加 / tool_call 锁链)。**无条件发 turn_end**(即使只有 tool_call,否则 inflight 锁死 — 从 Electron 版继承的坑)。
-- **命令锁链**:`tool_call` → `lock.lock()` → `setPendingToolCall` → ChatPane `ConfirmCard` → 确认 → `motorController.sendCommand` → `executed` 事件 → `lock.unlock()`。30s 超时自动取消。`get_status` 免确认自动执行。
-- **示波器**:telemetry 帧 → `ScopeApp` 交错 Ia/RPM → `scopeStore.applyFrame(payload, 2)` → `ScopeChart`(SVG rAF)。原始字节 → `hexBus` → `appendHex`。
-- **持久化**:会话存 localStorage(`mototune.sessions`),示波器通道配置存 localStorage(`scope.*`)。
+- **命令锁链**:`tool_call` → `lock.lock()` → `setPendingToolCall` → ChatPane `ConfirmCard` → 确认 → `motorController.sendCommand` → `executed` 事件 → `lock.unlock()`。30s 超时自动取消。`get_status` 免确认自动执行。`set_motor_state`/`sendCommand` 走 Modbus,`write_pid_<REG>` 写保存寄存器(供 AI 自调整)。
+- **示波器**:telemetry 轮询 → `ScopeApp` 交错 Ia/RPM → `scopeStore.applyFrame(payload, 2)` → `ScopeChart`(SVG rAF)。波形区上方"实时数据"条遍历 `channels` 显示当前值(通道名跟随 `label||name`,即 ChannelPanel 命名)。原始字节 → `hexBus` → `appendHex`。
+- **持久化**:会话存 localStorage(`mototune.sessions`),示波器通道配置存 localStorage(`scope.*`),设置存 localStorage(`mototune.settings`)。
 
 ## 串口协议(Modbus RTU,与固件强绑定,见 docs/modbus_rtu_protocol.md)
 
@@ -77,18 +80,39 @@ Next.js (App Router, 纯客户端渲染)
 ## 开发
 
 ```bash
-cp .env.example .env.local   # 填入 LLM_API_KEY(⚠️ 必须编辑,不能直接用占位符,否则 /api/llm 返回 401)
 npm install
-npm run dev                  # http://localhost:3000
-npm run build && npm start   # 生产模式(需保留 /api/llm,不能 next export)
+npm run dev                  # 开发:http://localhost:3000
+npm run build && npm start   # 生产(需保留 /api/llm,不能 next export)
+npm run test:unit / test:e2e / test:all   # 测试(playwright 起 3100,非 3000)
 ```
 
-## 组件约束(从 Electron 版继承)
+- **LLM 配置推荐走设置面板**(侧栏「设置」→ AI 供应商/Base URL/API Key/模型,存 localStorage),**无需 .env.local**。`/api/llm` 优先用请求带的 `body.config`(设置),env 仅作可选回退。
+- `.env.local`/`.env.example` 不入库;若用服务端默认配置(如生产),复制 `.env.example` => `.env.local` 填真实值。LLM 配置改动只改这两个文件,不写死代码。
+- `next.config.mjs` 说明:Web 版需 `/api/llm`,不能 `next export`(封装 Electron 时再定 A/B 方案)。
 
-- 深色工业风:底色 `#0a1628`,强调色 `#00a8ff`(聊天)/ `#00a8ff` 示波器,告警 `#ff9500`,危险 `#ff3b30`
-- 样式:Tailwind v3 + 原始 CSS 类(见 `app/globals.css`;**不 @apply 自定义颜色**,AGENTS.md 历史教训)
-- 无 emoji;中文界面;EStop 按钮 `bottom:90px; right:20px`(fixed)
-- 双页面用 `<a href="/scope">` 跳转,无窗口概念
+## 组件约束(Altior 近黑,见 docs/DESIGN.md)
+
+- 近黑主题:底色 `#0d0d0d`,侧栏 `#121212`,强调青 `#2bb8a8`(主)/ `#2f6bff`(蓝),告警 `#ff9500`,危险 `#ff3b30`。tokens 定义在 `tailwind.config.js`,别硬编码旧深蓝(`#0a1628`/`#00a8ff`)。
+- 样式:Tailwind v3 + 原始 CSS 类(见 `app/globals.css`);**不 @apply 自定义颜色**(历史教训)。新增颜色/通道样式走 `tailwind.config.js` 的 colors(已含 `text-primary`/`text-secondary`/`surface`/`surface-lighter` 等)。
+- 品牌:侧栏顶部白色徽章 FluxPilot 商标(`public/trademark_image.png` 图标 + `public/trademark.png` 文字)。图标+文字组合,白底图放白色徽章上,勿用 mix-blend(深底会变暗)。
+- EStop 为 inline 红色胶囊,集成在 Composer 工具行(发送钮旁),非 fixed。
+- 聊天↔示波器导航用 `next/link`(整页刷新会丢串口连接)。
+- 弹窗 `SettingsPanel`/`SearchDialog` overlay 有 `data-testid`,`SearchDialog` 结果按钮 `data-testid="search-result"`(供 e2e 区分弹窗与侧栏同文本项)。
+- 无 emoji 作图标(用 SVG / unicode 文本);中文界面。
+
+## 测试
+
+```bash
+npx playwright test                                  # E2E(自动起 next dev 于 3100 端口)
+npx playwright test e2e/app.spec.ts -g "折叠"        # 单文件/单用例
+npx vitest run unit/modbus.spec.ts                   # 单测单个文件
+npm run test:all                                     # 单测 + E2E 全量
+```
+
+- **单测(Vitest)**:`unit/`(modbus/llmClient/sessionStore/scopeStore),jsdom 环境。
+- **E2E(Playwright)**:`playwright.config.ts` 用 `webServer` 起 `next dev -p 3100`;`baseURL=http://localhost:3100`。**必须 mock 但勿碰真实 LLM/串口**:LLM 用 `page.route('**/api/llm')`,串口用 `e2e/mockSerial.ts` 的 `fakeSerialInitScript()`(Modbus 从站)。
+- **约定**:改布局后检查 e2e 选择器(发送钮 `.composer-send`、侧栏项 `.sb-item`、折叠 title、"新建对话"按钮);侧栏已无拖拽调宽(Altior 固定宽)。
+- Playwright 用 Chromium headless;环境里有 Next dev overlay 可能拦截点击,弹窗/折叠按钮定位用 `dispatchEvent('click')` 或 `data-testid` 更稳。
 
 ## Git
 

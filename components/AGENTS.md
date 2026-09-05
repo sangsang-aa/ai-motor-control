@@ -38,7 +38,7 @@ components/
 ## CONVENTIONS(区别于父)
 - **聊天→示波器用 `next/link`**(Sidebar/ScopeApp 内),整页刷新会丢串口连接状态
 - **测试定位**:弹窗 overlay 有 `data-testid="search-overlay"`/`search-result`,供 e2e 区分弹窗与侧栏同文本项
-- **侧栏标题**:MOTOTUNE 在侧栏顶部,宽不足用省略号;隐藏按钮(◀)与搜索按钮(🔍)在标题右侧
+- **侧栏品牌**:顶部白色徽章 FluxPilot 商标(图标 `trademark_image.png` + 文字 `trademark.png`);侧栏为 Altior 固定宽(240px,无拖拽调宽),隐藏按钮(◀)与搜索按钮(🔍)在品牌行右侧
 - **ScopeApp 订阅**:telemetry 单点(50ms 轮询)→ `applyFrame(payload, 2)`,与父文档"600 点帧"已不同
 
 ## ANTI-PATTERNS

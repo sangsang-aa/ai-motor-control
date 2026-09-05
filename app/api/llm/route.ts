@@ -27,12 +27,13 @@ export async function POST(req: NextRequest) {
   }
   if (!text.trim()) return new Response('empty text', { status: 400 })
 
-  // 前端设置优先(用户可在设置面板配置 AI 供应商),否则回退服务端 env
-  const baseUrl = cfg.baseUrl || process.env.LLM_BASE_URL
-  const apiKey = cfg.apiKey || process.env.LLM_API_KEY
+  // 设置面板配置优先(用户填的 baseUrl/apiKey/model),env 仅作可选回退。
+  // 无 .env.local 也可用:用户在设置面板填入 AI 供应商信息即可,key 存 localStorage 随请求传递。
+  const baseUrl = cfg.baseUrl || process.env.LLM_BASE_URL || ''
+  const apiKey = cfg.apiKey || process.env.LLM_API_KEY || ''
   const model = cfg.model || process.env.LLM_MODEL || 'qwen-plus'
   if (!baseUrl || !apiKey) {
-    return new Response('LLM 未配置: 请在 设置 中填写 AI 供应商 API,或配置 .env.local 的 LLM_API_KEY', { status: 500 })
+    return new Response('LLM 未配置: 请在设置的"AI 供应商"中填入 API Key(或配置服务端 .env.local)', { status: 500 })
   }
 
   const messages = [
