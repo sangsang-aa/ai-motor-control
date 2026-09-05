@@ -138,7 +138,7 @@ function LimitInput({
         }}
         className="w-12 px-0.5 py-0 rounded bg-surface text-text-primary text-[10px] font-mono border border-surface-lighter text-center"
       />
-      <span className="text-[10px] text-text-secondary">\u2013</span>
+      <span className="text-[10px] text-text-secondary">–</span>
       <input
         value={maxStr}
         onChange={(e) => setMaxStr(e.target.value)}

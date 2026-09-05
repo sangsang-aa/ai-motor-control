@@ -124,7 +124,7 @@ export default function ScopeChart() {
         preserveAspectRatio="none"
       >
         {/* Background */}
-        <rect x={0} y={0} width={w} height={h} fill="#1e1e2e" />
+        <rect x={0} y={0} width={w} height={h} fill="#0d0d0d" />
 
         {/* Horizontal grid lines */}
         {hGridLines.map((y, i) => (
@@ -134,7 +134,7 @@ export default function ScopeChart() {
             y1={y}
             x2={w - PAD.right}
             y2={y}
-            stroke="#2a2a3c"
+            stroke="#2a2a2a"
             strokeWidth={i === 3 ? 1 : 0.5 /* centre line slightly brighter */}
           />
         ))}
@@ -147,7 +147,7 @@ export default function ScopeChart() {
             y1={PAD.top}
             x2={x}
             y2={h - PAD.bottom}
-            stroke="#2a2a3c"
+            stroke="#2a2a2a"
             strokeWidth={0.5}
           />
         ))}
@@ -159,7 +159,7 @@ export default function ScopeChart() {
           width={iw}
           height={ih}
           fill="none"
-          stroke="#33334a"
+          stroke="#333333"
           strokeWidth={1}
         />
 
@@ -170,13 +170,13 @@ export default function ScopeChart() {
           const botVal = ch.bias * ch.yRange - ch.yRange * 2.5
           return (
             <g>
-              <text x={PAD.left - 4} y={PAD.top + 10} fill="#71717a" fontSize={9} fontFamily="monospace" textAnchor="end">
+              <text x={PAD.left - 4} y={PAD.top + 10} fill="#9aa0a6" fontSize={9} fontFamily="monospace" textAnchor="end">
                 {fmtNum(topVal)}
               </text>
-              <text x={PAD.left - 4} y={h - PAD.bottom - 2} fill="#71717a" fontSize={9} fontFamily="monospace" textAnchor="end">
+              <text x={PAD.left - 4} y={h - PAD.bottom - 2} fill="#9aa0a6" fontSize={9} fontFamily="monospace" textAnchor="end">
                 {fmtNum(botVal)}
               </text>
-              <text x={PAD.left - 4} y={centerY + 3} fill="#71717a" fontSize={9} fontFamily="monospace" textAnchor="end">
+              <text x={PAD.left - 4} y={centerY + 3} fill="#9aa0a6" fontSize={9} fontFamily="monospace" textAnchor="end">
                 {fmtNum(ch.bias * ch.yRange)}
               </text>
             </g>
@@ -191,7 +191,7 @@ export default function ScopeChart() {
               key={`xt${i}`}
               x={x}
               y={h - PAD.bottom + 14}
-              fill="#71717a"
+              fill="#9aa0a6"
               fontSize={9}
               fontFamily="monospace"
               textAnchor="middle"
@@ -252,7 +252,7 @@ export default function ScopeChart() {
               width={PAD.right - 16}
               height={legend.length * 24 + 8}
               rx={4}
-              fill="#1e1e2e"
+              fill="#0d0d0d"
               opacity={0.82}
             />
             {legend.map((item, i) => (
@@ -270,7 +270,7 @@ export default function ScopeChart() {
                 <text
                   x={w - PAD.right + 28}
                   y={PAD.top + 17 + i * 24}
-                  fill="#e4e4e7"
+                  fill="#ececec"
                   fontSize={10}
                   fontFamily="monospace"
                 >
@@ -282,7 +282,7 @@ export default function ScopeChart() {
                 <text
                   x={w - PAD.right + 14}
                   y={PAD.top + 28 + i * 24}
-                  fill="#71717a"
+                  fill="#9aa0a6"
                   fontSize={9}
                   fontFamily="monospace"
                 >

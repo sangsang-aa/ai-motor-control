@@ -4,62 +4,43 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Industrial control dark blue-gray base — oscilloscope night mode
+        // Altior 近黑主题(与 DESIGN.md 对齐)
         bg: {
-          base: '#0a1628',    // deepest background
-          panel: '#121e33',   // card / sidebar / panel bg
-          raised: '#1a2a42',  // elevated surfaces
-          hover: '#1f3450',   // hover state
-          active: '#253d5e',  // active / selected
-          overlay: 'rgba(10, 22, 40, 0.85)' // modal overlay
+          base: '#0d0d0d',
+          panel: '#121212',
+          raised: '#1c1c1c',
+          hover: '#1f1f1f',
+          active: '#2a2a2a',
+          overlay: 'rgba(13, 13, 13, 0.75)'
         },
         line: {
-          DEFAULT: '#1e3150',  // subtle borders
-          muted: '#152540',    // divider lines
-          bright: '#2a4570'    // focus / hover borders
+          DEFAULT: '#2a2a2a',
+          muted: '#1f1f1f',
+          bright: '#333333'
         },
         fg: {
-          base: '#e8ecf1',     // primary text
-          muted: '#8899aa',    // secondary / meta text
-          subtle: '#556677',   // disabled / placeholder
-          inverse: '#0a1628'   // text on accent bg
+          base: '#ececec',
+          muted: '#9aa0a6',
+          subtle: '#6b7075',
+          inverse: '#0d0d0d'
         },
         accent: {
-          DEFAULT: '#00a8ff',  // electrical blue — primary accent
-          dim: '#0088cc',      // hover / pressed
-          glow: '#00a8ff'      // glow effect (same as accent for now)
+          DEFAULT: '#2bb8a8',
+          dim: '#26a69a',
+          glow: '#2bb8a8'
         },
-        danger: {
-          DEFAULT: '#ff3b30',  // emergency stop
-          dim: '#cc2f26',      // hover
-          glow: '#ff3b30'      // glow effect
-        },
-        warning: {
-          DEFAULT: '#ff9500',  // amber — confirm cards
-          dim: '#cc7700',      // hover
-          bg: 'rgba(255, 149, 0, 0.08)',  // warning bg
-          border: 'rgba(255, 149, 0, 0.3)' // warning border
-        },
-        success: {
-          DEFAULT: '#34c759',  // connected / green
-          dim: '#28a745',      // hover
-          bg: 'rgba(52, 199, 89, 0.1)'  // success bg
-        },
-        chart: {
-          speed: '#00a8ff',    // RPM chart line
-          current: '#ff9500',  // current chart line
-          grid: 'rgba(255,255,255,0.06)',
-          text: '#556677'
-        },
-        surface: '#121e33',
-        'scope-ch1': '#ff6b6b',
-        'scope-ch2': '#4ecdc4',
-        'scope-ch3': '#45b7d1',
-        'scope-ch4': '#f9ca24',
-        'scope-ch5': '#6c5ce7',
-        'scope-ch6': '#a29bfe',
-        'scope-ch7': '#00b894',
-        'scope-ch8': '#e17055',
+        danger: { DEFAULT: '#ff3b30', dim: '#cc2f26', glow: '#ff3b30' },
+        warning: { DEFAULT: '#ff9500', dim: '#cc7700', bg: 'rgba(255,149,0,0.08)', border: 'rgba(255,149,0,0.3)' },
+        success: { DEFAULT: '#2bb8a8', dim: '#26a69a', bg: 'rgba(43,184,168,0.1)' },
+        chart: { speed: '#2bb8a8', current: '#2f6bff', grid: 'rgba(255,255,255,0.06)', text: '#6b7075' },
+        surface: '#121212',
+        'surface-lighter': '#1f1f1f',
+        'surface-light': '#1c1c1c',
+        'text-text-primary': '#ececec',
+        'text-text-secondary': '#9aa0a6',
+        'scope-ch1': '#ff6b6b', 'scope-ch2': '#4ecdc4', 'scope-ch3': '#45b7d1',
+        'scope-ch4': '#f9ca24', 'scope-ch5': '#6c5ce7', 'scope-ch6': '#a29bfe',
+        'scope-ch7': '#00b894', 'scope-ch8': '#e17055',
       },
       fontFamily: {
         sans: [
