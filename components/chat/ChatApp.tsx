@@ -9,7 +9,6 @@ import { Sidebar } from './Sidebar'
 import { ChatPane } from './ChatPane'
 import { Composer } from './Composer'
 import { DisconnectBanner } from './DisconnectBanner'
-import { EStopButton } from './EStopButton'
 import { CommandLockBanner } from './CommandLockBanner'
 import { SettingsPanel } from './SettingsPanel'
 import { SearchDialog } from './SearchDialog'
@@ -87,10 +86,9 @@ export const ChatApp: React.FC = () => {
         {disconnectMessage && !connected && <DisconnectBanner />}
         <div className="flex-1 flex flex-col min-h-0">
           <ChatPane />
-          <Composer onSend={handleSend} disabled={inflight || lock.status !== 'idle'} locked={lock.status !== 'idle'} />
+          <Composer onSend={handleSend} onEStop={() => lock.unlock()} disabled={inflight || lock.status !== 'idle'} locked={lock.status !== 'idle'} />
         </div>
       </div>
-      <EStopButton onEStop={() => lock.unlock()} />
       {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
       {showSearch && <SearchDialog onClose={() => setShowSearch(false)} />}
     </div>

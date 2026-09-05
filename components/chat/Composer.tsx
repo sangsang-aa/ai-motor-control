@@ -5,14 +5,16 @@
 
 import React, { useState, useRef, useEffect } from 'react'
 import { useLangStore, t } from '@/lib/i18n'
+import { EStopButton } from './EStopButton'
 
 interface Props {
   onSend: (text: string) => void
   disabled?: boolean
   locked?: boolean
+  onEStop?: () => void
 }
 
-export const Composer: React.FC<Props> = ({ onSend, disabled, locked }) => {
+export const Composer: React.FC<Props> = ({ onSend, disabled, locked, onEStop }) => {
   const lang = useLangStore((s) => s.lang)
   const [text, setText] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -48,6 +50,7 @@ export const Composer: React.FC<Props> = ({ onSend, disabled, locked }) => {
           <button className="composer-tool-pill" style={{ width: 30, height: 30, padding: 0, justifyContent: 'center', borderRadius: 8 }} title="附加">＋</button>
           <span className="composer-tool-pill">工具 <span style={{ fontSize: 9 }}>▾</span></span>
           <span className="composer-tool-pill think">✎ 深度思考</span>
+          <EStopButton onEStop={onEStop} />
           <button onClick={send} disabled={disabled || locked || !text.trim()} className="composer-send" title="发送">
             ↑
           </button>

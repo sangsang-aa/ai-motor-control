@@ -58,8 +58,8 @@ export const Sidebar: React.FC<Props> = ({ onOpenSettings, onOpenSearch }) => {
 
         <div style={{ padding: '8px 12px 2px' }}>
           <button onClick={() => { const id = createSession(); selectSession(id) }}
-            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 8, fontSize: 14, color: '#e8ecf1', background: '#1c1c1c', border: '1px solid #2a2a2a', cursor: 'pointer', textAlign: 'left' }}>
-            <span style={{ fontSize: 14 }}>＋</span>{t(lang, 'newSession')}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px 12px', borderRadius: 8, fontSize: 14, color: '#e8ecf1', background: '#1c1c1c', border: '1px solid #2a2a2a', cursor: 'pointer', textAlign: 'center' }}>
+            {t(lang, 'newSession')}
           </button>
         </div>
 
@@ -79,11 +79,11 @@ export const Sidebar: React.FC<Props> = ({ onOpenSettings, onOpenSearch }) => {
               <div key={id} className="relative group">
                 <button onClick={() => selectSession(id)} className={`sb-item ${active ? 'on' : ''} w-full`}>
                   <span className="truncate" style={{ flex: 1 }}>{preview}</span>
-                  <span style={{ fontSize: 10, color: '#6b7075', flexShrink: 0 }}>{new Date(s.updatedAt).toLocaleString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</span>
+                  <span className="group-hover:hidden" style={{ fontSize: 10, color: '#6b7075', flexShrink: 0 }}>{new Date(s.updatedAt).toLocaleString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</span>
                 </button>
-                <div className="absolute right-8 top-1/2 -translate-y-1/2 hidden group-hover:flex gap-1">
-                  <button onClick={(e) => { e.stopPropagation(); setEditingId(id); setEditTitle(s.title) }} className="text-[10px] text-fg-subtle hover:text-fg-base px-1">✎</button>
-                  <button onClick={(e) => { e.stopPropagation(); if (confirm(t(lang, 'deleteSession'))) deleteSession(id) }} className="text-[10px] text-fg-subtle hover:text-danger px-1">✕</button>
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 hidden group-hover:flex gap-1">
+                  <button onClick={(e) => { e.stopPropagation(); setEditingId(id); setEditTitle(s.title) }} className="text-[10px] text-fg-subtle hover:text-fg-base px-1" title="重命名">✎</button>
+                  <button onClick={(e) => { e.stopPropagation(); if (confirm(t(lang, 'deleteSession'))) deleteSession(id) }} className="text-[10px] text-fg-subtle hover:text-danger px-1" title="删除">✕</button>
                 </div>
               </div>
             )

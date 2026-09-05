@@ -13,7 +13,7 @@ export const translations = {
     disconnect: '断开',
     rpm: '转速',
     current: '电流',
-    newSession: '+ 新建会话',
+    newSession: '新建对话',
     sessions: '对话记录',
     tools: '工具栏',
     scope: '示波器',

@@ -52,7 +52,7 @@ test('侧栏为固定窄宽(Altior 风格,无拖拽)', async ({ page }) => {
 
 test('新建会话按钮可创建会话', async ({ page }) => {
   await gotoChat(page)
-  await page.locator('button', { hasText: '+ 新建会话' }).click()
+  await page.locator('button', { hasText: '新建对话' }).click()
   // 会话列表出现一个"新会话"
   await expect(page.locator('aside .sb-item').first()).toBeVisible()
 })

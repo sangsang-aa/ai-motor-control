@@ -31,7 +31,7 @@ test('搜索对话弹窗:按关键词过滤并跳转', async ({ page }) => {
   )
   await gotoChat(page)
   const mkSession = async (text: string) => {
-    await page.locator('button', { hasText: '+ 新建会话' }).click()
+    await page.locator('button', { hasText: '新建对话' }).click()
     await page.locator('textarea').fill(text)
     await page.locator('.composer-send').click()
   }
