@@ -50,7 +50,7 @@ export const SettingsPanel: React.FC<{ onClose: () => void }> = ({ onClose }) =>
   const input: React.CSSProperties = { width: '100%', background: '#1c1c1c', border: '1px solid #2a2a2a', borderRadius: 6, padding: '8px 10px', color: '#ececec', fontSize: 13 }
 
   return (
-    <div style={overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div style={overlay}>
       <div style={box}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <span style={{ fontSize: 16, fontWeight: 700 }}>{t(lang, 'settingsTitle')}</span>

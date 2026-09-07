@@ -33,7 +33,7 @@ export const SearchDialog: React.FC<{ onClose: () => void }> = ({ onClose }) => 
   }
 
   return (
-    <div style={overlay} onClick={(e) => e.target === e.currentTarget && onClose()} data-testid="search-overlay">
+    <div style={overlay} data-testid="search-overlay">
       <div style={box}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderBottom: '1px solid #2a2a2a' }}>
           <span style={{ fontSize: 14, fontWeight: 600 }}>{t(lang, 'search')}</span>
