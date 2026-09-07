@@ -26,9 +26,10 @@ export const Topbar: React.FC = () => {
     }
   }
 
-  // 桥接模式:浏览器经 ws://127.0.0.1:8765 直连本地 serial_bridge.py(独占 COM 并打印通讯日志)
+  // 桥接模式:浏览器经 ws://127.0.0.1:8765 直连本地 serial_bridge.py(独占 COM 并打印通讯日志)。
+  // 注意:已连接时重复点击不动作(断开请用右侧主按钮),避免误触切掉会话。
   const handleBridge = async () => {
-    if (connected) { await disconnect(); return }
+    if (connected) return
     const r = await connectBridge(BRIDGE_URL)
     if (!r.ok && r.error) alert(`桥接失败: ${r.error}`)
   }

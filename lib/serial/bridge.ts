@@ -5,6 +5,8 @@
  * 接口形状与 Web Serial 对齐(readable/writable/getInfo/close),
  * 可直接被 motorController 当作 SerialPort 使用,业务层零改动。
  * 依赖: 桥接工具 E:\f280025c_modbus_slave\tools\serial_bridge.py(与固件同周)。
+ *
+ * 握手协议: 桥接受连接后发送文本 "READY OK"(成功)或 "ERROR: ..."(串口不可用)。
  */
 
 const HANDSHAKE = 'READY'
@@ -23,33 +25,36 @@ export class BridgePort {
     this.ws = ws
   }
 
-  /** 连接桥接服务并等待握手,超时/失败抛错。 */
+  /** 连接桥接服务并等待握手(READY)完成;桥端 ERROR/超时/失败均抛错。 */
   static async open(url: string, timeoutMs = 5000): Promise<BridgePort> {
     const ws = new WebSocket(url)
     ws.binaryType = 'arraybuffer'
     const port = new BridgePort(ws)
     await new Promise<void>((resolve, reject) => {
-      let hit = false
-      const timer = setTimeout(() => {
-        if (hit) return
-        hit = true
-        try { ws.close() } catch { /* 忽略 */ }
-        reject(new Error(`桥接连接超时: ${url}`))
-      }, timeoutMs)
-      ws.onerror = () => {
-        if (hit) return
-        hit = true
+      let settled = false
+      const fail = (err: Error) => {
+        if (settled) return
+        settled = true
         clearTimeout(timer)
-        reject(new Error(`无法连接桥接服务: ${url}(需先启动 serial_bridge.py)`))
+        try { ws.close() } catch { /* 忽略 */ }
+        reject(err)
       }
-      ws.onclose = () => port.notifyClosed()
+      const timer = setTimeout(() => fail(new Error(`桥接连接超时: ${url}(需先启动 serial_bridge.py)`)), timeoutMs)
+      ws.onerror = () => fail(new Error(`无法连接桥接服务: ${url}`))
+      ws.onclose = () => {
+        port.notifyClosed()
+        if (!settled) fail(new Error('桥接已在连接完成前断开'))
+      }
       ws.onmessage = (ev) => {
-        if (hit) return
+        // 文本帧 = 握手结果;二进制帧 = 串口数据(RX),任何时刻都入口转发
         if (typeof ev.data === 'string') {
+          if (settled) return
           if (ev.data.includes(HANDSHAKE)) {
-            hit = true
+            settled = true
             clearTimeout(timer)
             resolve()
+          } else if (ev.data.trimStart().startsWith('ERROR')) {
+            fail(new Error(ev.data.replace(/^ERROR:\s*/, '')))
           }
           return
         }

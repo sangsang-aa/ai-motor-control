@@ -150,7 +150,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       const last = msgs[msgs.length - 1]
       if (last?.role === 'assistant' && last.streaming) {
         msgs[msgs.length - 1] = { ...last, content: last.content + event.content }
-      } else {
+      } else if (event.content) {
+        // 空 content 不新建消息,避免生成空气泡
         msgs.push({
           id: genId(),
           role: 'assistant',
