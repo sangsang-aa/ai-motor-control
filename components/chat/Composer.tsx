@@ -33,15 +33,12 @@ export const Composer: React.FC<Props> = ({ onSend, disabled, locked, onEStop })
   return (
     <div style={{ padding: '16px 24px 20px', display: 'flex', justifyContent: 'center' }}>
       <div className="composer-box" style={{ position: 'relative' }}>
-        {locked && (
-          <div style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(13,13,13,0.75)', fontSize: 13, color: '#ffb340', borderRadius: 18 }}>请先确认或取消当前电机控制指令</div>
-        )}
         <textarea
           ref={textareaRef}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
-          placeholder={locked ? '请先确认或取消当前电机控制指令' : t(lang, 'inputPlaceholder')}
+          placeholder={t(lang, 'inputPlaceholder')}
           rows={1}
           className="composer-textarea"
           disabled={disabled || locked}

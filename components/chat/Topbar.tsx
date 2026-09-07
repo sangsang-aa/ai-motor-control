@@ -5,8 +5,8 @@
 
 import React from 'react'
 import { useMotorStore } from '@/lib/stores/motorStore'
-import { connect, disconnect, getPortName } from '@/lib/serial/motorController'
-import { DEFAULT_BAUD } from '@/lib/config'
+import { connect, connectBridge, disconnect, getPortName } from '@/lib/serial/motorController'
+import { BRIDGE_URL, DEFAULT_BAUD } from '@/lib/config'
 import { useLangStore, t } from '@/lib/i18n'
 import { loadSettings } from '@/lib/settings'
 
@@ -26,6 +26,13 @@ export const Topbar: React.FC = () => {
     }
   }
 
+  // 桥接模式:浏览器经 ws://127.0.0.1:8765 直连本地 serial_bridge.py(独占 COM 并打印通讯日志)
+  const handleBridge = async () => {
+    if (connected) { await disconnect(); return }
+    const r = await connectBridge(BRIDGE_URL)
+    if (!r.ok && r.error) alert(`桥接失败: ${r.error}`)
+  }
+
   return (
     <header className="topbar main-topbar">
       {/* 左:模型下拉(pill) */}
@@ -41,6 +48,12 @@ export const Topbar: React.FC = () => {
       <span className="text-tertiary" style={{ fontSize: 11, color: '#6b7075' }}>{t(lang, 'baud')}</span>
       <input value={baud} onChange={(e) => setBaud(e.target.value)} disabled={connected}
         className="input-base" style={{ width: 92, minHeight: 26, background: '#1c1c1c', border: '1px solid #2a2a2a', color: '#e8ecf1', fontSize: 12, padding: '4px 8px', opacity: connected ? 0.5 : 1 }} placeholder="150000" />
+      <button onClick={handleBridge}
+        className="px-3 py-1 rounded-lg text-xs font-medium border transition-all"
+        title={`桥接模式: COM → ${BRIDGE_URL}(serial_bridge.py),同时可在桥接窗口看到通讯帧`}
+        style={{ background: 'rgba(86,108,255,0.12)', color: '#5d6cf6', borderColor: 'rgba(86,108,255,0.3)' }}>
+        {connected ? t(lang, 'disconnect') : '桥接'}
+      </button>
       <button onClick={handleToggle}
         className="px-3 py-1 rounded-lg text-xs font-medium border transition-all"
         style={{ background: connected ? 'rgba(255,59,48,0.15)' : 'rgba(43,184,168,0.12)', color: connected ? '#ff3b30' : '#2bb8a8', borderColor: connected ? 'rgba(255,59,48,0.25)' : 'rgba(43,184,168,0.3)' }}>

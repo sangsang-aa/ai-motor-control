@@ -16,7 +16,8 @@ import {
   regsToFloat32
 } from './modbus'
 import { backendBus, hexBus } from '../bus'
-import { DEFAULT_BAUD, RPM_LIMIT } from '../config'
+import { DEFAULT_BAUD, RPM_LIMIT, BRIDGE_URL } from '../config'
+import { BridgePort } from './bridge'
 
 // ── 运行时状态 ────────────────────────────────────────────────────
 let port: SerialPort | null = null
@@ -27,6 +28,8 @@ let pollingActive = false
 let currentRpm = 0
 let lastCurrent = 0
 let currentOn = false
+/** 桥接模式时记录了 ws 地址,便于 getPortName 显示 */
+let bridgeUrl: string | null = null
 
 export function isConnected(): boolean {
   return port !== null && port.readable !== null
@@ -34,6 +37,7 @@ export function isConnected(): boolean {
 
 export function getPortName(): string {
   if (!port) return ''
+  if (bridgeUrl) return `Bridge(${bridgeUrl.replace(/^ws:\/\//, '')})`
   const info = port.getInfo()
   const vid = info.usbVendorId?.toString(16).padStart(4, '0')
   const pid = info.usbProductId?.toString(16).padStart(4, '0')
@@ -105,6 +109,27 @@ export async function connect(baudRate: number = DEFAULT_BAUD): Promise<{ ok: bo
   }
 }
 
+/**
+ * 桥接模式连接:浏览器不直接开串口,改连本地 serial_bridge.py(WebSocket)。
+ * 桥接服务独占 COM 并将每帧通讯打印到控制台 —— 支持"上位机测试 + tools 监控并行"。
+ */
+export async function connectBridge(url: string = BRIDGE_URL): Promise<{ ok: boolean; error?: string }> {
+  if (port && port.readable) return { ok: false, error: '已连接' }
+  try {
+    const p = await BridgePort.open(url)
+    port = p as unknown as SerialPort
+    bridgeUrl = url
+    currentRpm = 0
+    lastCurrent = 0
+    currentOn = false
+    backendBus.emit({ type: 'serial_status', connected: true, port: getPortName(), baudRate: 0 })
+    startPolling()
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: String(e instanceof Error ? e.message : e) }
+  }
+}
+
 export async function disconnect(): Promise<void> {
   pollingActive = false
   try { await reader?.cancel() } catch { /* 忽略 */ }
@@ -116,6 +141,7 @@ export async function disconnect(): Promise<void> {
   if (p) {
     try { await p.close() } catch { /* 忽略 */ }
   }
+  bridgeUrl = null
   currentRpm = 0
   lastCurrent = 0
   currentOn = false
