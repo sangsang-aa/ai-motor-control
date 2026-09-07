@@ -46,3 +46,16 @@ test('搜索对话弹窗:按关键词过滤并跳转', async ({ page }) => {
   await results.first().click()
   await expect(page.locator('aside nav .sb-item.on').first()).toBeVisible()
 })
+
+test('设置改模型后 Topbar 即时更新(响应式)', async ({ page }) => {
+  await page.goto('/')
+  await page.waitForSelector('aside.sidebar')
+  // 打开设置,填 DeepSeek 模型名,保存
+  await page.locator('aside.sidebar button', { hasText: '设置' }).click()
+  await page.locator('select').nth(1).selectOption('自定义')
+  const modelInput = page.locator('input[placeholder="qwen-plus"]')
+  await modelInput.fill('deepseek-chat')
+  await page.locator('button', { hasText: '保存' }).click()
+  // Topbar 模型 pill 应显示 deepseek-chat(而非 qwen)
+  await expect(page.locator('.model-pill')).toContainText('deepseek-chat')
+})

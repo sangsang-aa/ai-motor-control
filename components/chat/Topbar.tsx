@@ -8,13 +8,13 @@ import { useMotorStore } from '@/lib/stores/motorStore'
 import { connect, connectBridge, disconnect, getPortName } from '@/lib/serial/motorController'
 import { BRIDGE_URL, DEFAULT_BAUD } from '@/lib/config'
 import { useLangStore, t } from '@/lib/i18n'
-import { loadSettings } from '@/lib/settings'
+import { useSettingsStore } from '@/lib/settings'
 
 export const Topbar: React.FC = () => {
   const lang = useLangStore((s) => s.lang)
   const { connected, status } = useMotorStore()
   const [baud, setBaud] = React.useState(String(DEFAULT_BAUD))
-  const [modelDisplay] = React.useState(() => loadSettings().model || 'qwen-plus')
+  const model = useSettingsStore((s) => s.settings.model || 'qwen-plus')
 
   const handleToggle = async () => {
     const b = parseInt(baud)
@@ -36,7 +36,7 @@ export const Topbar: React.FC = () => {
   return (
     <header className="topbar main-topbar">
       {/* 左:模型下拉(pill) */}
-      <span className="model-pill">{modelDisplay} <span style={{ fontSize: 10 }}>▾</span></span>
+      <span className="model-pill">{model} <span style={{ fontSize: 10 }}>▾</span></span>
 
       {/* 右:串口状态 + 波特率 + 连接 + 转速/电流 */}
       <div style={{ flex: 1 }} />

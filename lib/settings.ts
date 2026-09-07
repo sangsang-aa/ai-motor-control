@@ -1,5 +1,8 @@
 // 前端设置 — localStorage 持久化(language / AI 供应商与 API 配置)
 // AI 配置随 /api/llm 请求体传递,route 优先使用请求配置,否则回退 .env.local
+// useSettingsStore 提供响应式订阅(设置变更即时反映到 UI,如 Topbar 模型名)。
+
+import { create } from 'zustand'
 
 export type Language = 'zh' | 'en'
 
@@ -31,29 +34,47 @@ export const DEFAULT_SETTINGS: Settings = {
   model: 'qwen3.7-plus'
 }
 
+// 响应式设置源(组件订阅;save/load 会写这里)
+interface SettingsState {
+  settings: Settings
+  setSettings: (s: Settings) => void
+}
+export const useSettingsStore = create<SettingsState>((set) => ({
+  settings: DEFAULT_SETTINGS,
+  setSettings: (settings) => set({ settings })
+}))
+
 export function loadSettings(): Settings {
   try {
     const raw = localStorage.getItem(LS_KEY)
-    if (!raw) return DEFAULT_SETTINGS
-    const parsed = JSON.parse(raw) as Partial<Settings>
-    return {
-      language: parsed.language === 'en' ? 'en' : 'zh',
-      provider: parsed.provider ?? DEFAULT_SETTINGS.provider,
-      baseUrl: parsed.baseUrl ?? '',
-      apiKey: parsed.apiKey ?? '',
-      model: parsed.model ?? DEFAULT_SETTINGS.model
-    }
+    const settings =
+      raw !== null
+        ? loadFrom(JSON.parse(raw) as Partial<Settings>)
+        : { ...DEFAULT_SETTINGS }
+    useSettingsStore.getState().setSettings(settings)
+    return settings
   } catch {
-    return DEFAULT_SETTINGS
+    return { ...DEFAULT_SETTINGS }
+  }
+}
+
+function loadFrom(parsed: Partial<Settings>): Settings {
+  return {
+    language: parsed.language === 'en' ? 'en' : 'zh',
+    provider: parsed.provider ?? DEFAULT_SETTINGS.provider,
+    baseUrl: parsed.baseUrl ?? '',
+    apiKey: parsed.apiKey ?? '',
+    model: parsed.model ?? DEFAULT_SETTINGS.model
   }
 }
 
 export function saveSettings(patch: SettingsPatch): Settings {
-  const next = { ...loadSettings(), ...patch }
+  const next = loadFrom({ ...loadSettings(), ...patch })
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(next))
   } catch {
     /* localStorage 不可用时静默 */
   }
+  useSettingsStore.getState().setSettings(next)
   return next
 }
