@@ -56,7 +56,9 @@ function enqueue<T>(fn: () => Promise<T>): Promise<T> {
   return run
 }
 
-// ── 单次事务:写请求 → 读固定长度响应 ────────────────────────────
+// ── 单次事务:写请求 → 读固定长度响应(带超时,防桥接/从站响应缺失时队列死锁) ──
+const XACT_TIMEOUT = 500 // ms
+
 async function transact(req: Uint8Array, respLen: number): Promise<Uint8Array> {
   if (!port || !port.writable || !port.readable) throw new Error('未连接串口')
   hexBus.emit(req)
@@ -69,14 +71,17 @@ async function transact(req: Uint8Array, respLen: number): Promise<Uint8Array> {
     try { writer.releaseLock() } catch { /* 忽略 */ }
     writer = null
   }
-  // 等待从站响应
+  // 等待从站响应(带超时;超时抛错,避免 respLen 读不到时永久卡住队列)
   await new Promise((r) => setTimeout(r, 4))
   const resp = new Uint8Array(respLen)
   reader = port.readable.getReader()
   let got = 0
   try {
+    const deadline = Date.now() + XACT_TIMEOUT
     while (got < respLen) {
-      const { value, done } = await reader.read()
+      const remaining = deadline - Date.now()
+      if (remaining <= 0) throw new Error(`读取超时(${XACT_TIMEOUT}ms): 期望 ${respLen} 字节,实收 ${got}`)
+      const { value, done } = await withTimeout(reader.read(), remaining)
       if (done || !value) break
       for (let i = 0; i < value.length && got < respLen; i++) resp[got++] = value[i]
     }
@@ -86,6 +91,19 @@ async function transact(req: Uint8Array, respLen: number): Promise<Uint8Array> {
   }
   hexBus.emit(resp.slice(0, got))
   return resp.slice(0, got)
+}
+
+/** 给 Promise 包一层超时,超时抛错(不取消底层,仅释放调用方等待) */
+async function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>
+  const timeout = new Promise<never>((_, rej) => {
+    timer = setTimeout(() => rej(new Error(`桥接/串口读取超时 ${ms}ms`)), ms)
+  })
+  try {
+    return await Promise.race([p, timeout])
+  } finally {
+    clearTimeout(timer!)
+  }
 }
 
 // ── 连接/断开 ─────────────────────────────────────────────────────
