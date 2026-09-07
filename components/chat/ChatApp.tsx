@@ -39,7 +39,8 @@ export const ChatApp: React.FC = () => {
         const s = store.currentId ? store.sessions[store.currentId] : null
         if (s) {
           const msgs = s.messages.filter((m) => !(m.role === 'assistant' && m.streaming))
-          if (msgs.length !== s.messages.length) { store.applyLlmEvent({ type: 'text', content: '' }); store.applyLlmEvent({ type: 'turn_end' }) }
+          // 若仍有 streaming 消息,仅结束它(turn_end 作用于最后一个 assistant,不新建气泡)
+          if (msgs.length !== s.messages.length) { store.applyLlmEvent({ type: 'turn_end' }) }
         }
         if (lock.status !== 'idle') { store.applyLlmEvent({ type: 'text', content: '当前存在未确认的硬件操作，请等待处理' }); return }
         if (e.toolName === 'get_status') {
