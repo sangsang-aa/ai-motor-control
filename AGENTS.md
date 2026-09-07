@@ -43,7 +43,7 @@ Next.js (App Router, 纯客户端渲染)
     ├── types.ts          → 跨层类型(BackendEvent/LlmEvent/Session/Message/MotorStatus)
     ├── bus.ts            → 事件总线:backendBus(串口)/llmBus(LLM)/hexBus(原始字节)
     ├── config.ts         → 常量 DEFAULT_BAUD/RPM_LIMIT/COMMAND_CONFIRM_TIMEOUT
-    ├── settings.ts       → localStorage 设置(语言/AI 供应商/baseUrl/apiKey/model)
+    ├── settings.ts       → localStorage 设置(语言/AI 供应商/baseUrl/apiKey/model)+ useSettingsStore(响应式,Topbar 模型联动)
     ├── i18n.ts           → 中/英字典 + useLangStore(响应式切换)
     ├── serial/modbus.ts → Modbus RTU 协议层(CRC16/01/03/05/06/0F/10 帧 + float32 编解码 + 地址表 ADDR/FC)
     ├── serial/motorController.ts → Web Serial 适配 + 串行事务队列 + 写命令 + 50ms 轮询遥测
@@ -60,6 +60,8 @@ Next.js (App Router, 纯客户端渲染)
 - **命令锁链**:`tool_call` → `lock.lock()` → `setPendingToolCall` → ChatPane `ConfirmCard` → 确认 → `motorController.sendCommand` → `executed` 事件 → `lock.unlock()`。30s 超时自动取消。`get_status` 免确认自动执行。`set_motor_state`/`sendCommand` 走 Modbus,`write_pid_<REG>` 写保存寄存器(供 AI 自调整)。
 - **示波器**:telemetry 轮询 → `ScopeApp` 交错 Ia/RPM → `scopeStore.applyFrame(payload, 2)` → `ScopeChart`(SVG rAF)。波形区上方"实时数据"条遍历 `channels` 显示当前值(通道名跟随 `label||name`,即 ChannelPanel 命名)。原始字节 → `hexBus` → `appendHex`。
 - **持久化**:会话存 localStorage(`mototune.sessions`),示波器通道配置存 localStorage(`scope.*`),设置存 localStorage(`mototune.settings`)。
+- **设置响应式**:`useSettingsStore`(zustand)是设置唯一响应式源;`saveSettings`/`loadSettings` 都会写它。**组件订阅 store 而非直接读 localStorage**——否则改模型/供应商不刷新(曾 bug:Topbar 模型名残留 qwen)。
+- **空消息防御**:`sessionStore.applyLlmEvent` 对空 content 的 text 不新建消息;`ChatApp` tool_call 时不再追加空 text——避免"空气泡"。新增消息给 content 若为空串直接跳过。
 
 ## 串口协议(Modbus RTU,与固件强绑定,见 docs/modbus_rtu_protocol.md)
 
@@ -67,8 +69,9 @@ Next.js (App Router, 纯客户端渲染)
 - 线圈(功能码 01/05/0F,独立地址空间):`COIL_MOTOR_EN`(0x0000)、`COIL_FAULT_RESET`(0x0001)、`COIL_EMERGENCY_STOP`(0x0002)
 - float32 参数占 2 寄存器,big-endian(高字低地址);CRC-16/MODBUS
 - 遥测由主站每 50ms 轮询 0x03 读回(无持续推送帧)→ 示波器数据源
-- 波特率默认 1500000,可运行时动态调整
+- **波特率默认 `115200`**(`lib/config.ts`,与已烧录固件 `MODBUS_BAUD=115200` 一致;1500000 无法整除 25MHz LSPCLK,误差超容差)
 - 转速上限 6000 RPM(安全约束,超限 clamp)
+- **`transact` 读响应带 500ms 超时**(`XACT_TIMEOUT`)— 桥接/从站响应缺失时抛错释放队列,防队列死锁、确认卡无反应
 
 ## Web Serial 已知约束(坑)
 
@@ -76,6 +79,13 @@ Next.js (App Router, 纯客户端渲染)
 - `requestPort()` 必须在用户手势(点击)中调用 — 连接按钮不能走异步链
 - 刷新页面后需重新授权选择设备;页面关闭即释放串口
 - 浏览器不支持 Web Serial 时,Topbar 连接会 alert 提示
+
+## 桥接模式(调试用,独立于 Web Serial)
+
+- **两种连接路径并存**:Web Serial(浏览器直开串口)与桥接(`connectBridge` 连 `BRIDGE_URL=ws://127.0.0.1:8765`)。Topbar 有"桥接"按钮与"连接串口"按钮。
+- **`lib/serial/bridge.ts` 的 `BridgePort`**:接口形状与 Web Serial `SerialPort` 对齐(readable/writable/getInfo/close),可直接被 motorController 当串口用。握手:桥接服务端发 `READY`(含 ERROR 则为串口不可用,/超时抛错)。
+- **外部串口桥 `serial_bridge.py` 是独立工具**——用户在 Windows CMD `python serial_bridge.py` 启动,独占 COM 并打印每帧 Modbus TX/RX 日志,提供 ws 服务。**它不在本仓库**(提交在另一仓库),本仓库只有浏览器端的 `BridgePort`。
+- Topbar 已连接时点"桥接"不动作(断开用右侧主按钮),防误触。
 
 ## 开发
 
