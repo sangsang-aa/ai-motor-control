@@ -9,10 +9,8 @@ import ChannelPanel from './ChannelPanel'
 import PauseToggle from './PauseToggle'
 import HexToggle from './HexToggle'
 import HexView from './HexView'
-import { WavePanel } from './WavePanel'
 import { useScopeStore, autoColor } from '@/lib/stores/scopeStore'
 import { useMotorStore } from '@/lib/stores/motorStore'
-import { useWaveStore } from '@/lib/stores/waveStore'
 import { backendBus, hexBus } from '@/lib/bus'
 import { useLangStore, t } from '@/lib/i18n'
 
@@ -32,8 +30,7 @@ export const ScopeApp: React.FC = () => {
     const u1 = backendBus.on((e) => {
       applyEvent(e)
       if (e.type === 'wave_frame') {
-        useWaveStore.getState().apply(e)
-        // 同时灌进主示波器 ScopeChart(通道0 = 电流波形,通道1 = 转速平线)
+        // 100 点电流波形直接灌进主示波器 ScopeChart(通道0 = 电流,通道1 = 转速平线)
         const st = useScopeStore.getState()
         const rpm = useMotorStore.getState().status.rpm || 0
         const payload: number[] = []
@@ -110,9 +107,6 @@ export const ScopeApp: React.FC = () => {
                 </span>
               )
             })}
-          </div>
-          <div style={{ flexShrink: 0, borderBottom: '1px solid #2a2a2a' }}>
-            <WavePanel />
           </div>
           <div style={{ flex: 1, minHeight: 0 }}>
             {showHex ? <HexView /> : <ScopeChart />}
