@@ -33,6 +33,12 @@ export const ScopeApp: React.FC = () => {
       applyEvent(e)
       if (e.type === 'wave_frame') {
         useWaveStore.getState().apply(e)
+        // 同时灌进主示波器 ScopeChart(通道0 = 电流波形,通道1 = 转速平线)
+        const st = useScopeStore.getState()
+        const rpm = useMotorStore.getState().status.rpm || 0
+        const payload: number[] = []
+        for (const s of e.samples) payload.push(s, rpm)
+        if (payload.length > 0) st.applyFrame(payload, 2)
         return
       }
       if (e.type === 'telemetry') {

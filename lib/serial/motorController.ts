@@ -197,15 +197,10 @@ async function readWaveFrame(): Promise<void> {
   const r2 = parseReadHolding(await transact(buildReadHoldingRegs(slave, ADDR.CUR_WAVE_BUF + 125, 75), 5 + 150), slave, 75)
   const regs = [...r1, ...r2]
 
-  // 3. 再读一次 batch 校验没变(变了 = 读到写一半的数据,丢弃本帧)
-  const chkResp = await transact(buildReadHoldingRegs(slave, ADDR.WAVE_SEQ, 1), 5 + 2)
-  const chkRegs = parseReadHolding(chkResp, slave, 1)
-  if (chkRegs[0] !== batch) return // 批次变了,丢弃
-
   const samples: number[] = []
   for (let i = 0; i < regs.length / 2; i++) samples.push(regsToFloat32(regs[i * 2], regs[i * 2 + 1]))
 
-  // 4. 清就绪标志(0x2201 = 0);若固件自动清位,此写亦可为 0 确认
+  // 3. 清就绪标志(0x2201 = 0);若固件自动清位,此写亦可为 0 确认
   try { await transact(buildWriteSingleReg(slave, ADDR.WAVE_READY, 0), 8) } catch { /* 忽略 */ }
 
   backendBus.emit({ type: 'wave_frame', batch, samples })
