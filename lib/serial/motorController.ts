@@ -274,7 +274,13 @@ export async function sendCommand(
   if (action === 'clear_emergency_stop') {
     // 复位:清除急停线圈(0x0002 = OFF),固件随之恢复转速设定
     await enqueue(() => transact(buildWriteSingleCoil(slave, ADDR.COIL_EMERGENCY_STOP, false), 8))
-    const result = 'OK emergency_stop cleared'
+    // 固件"急停时清转速设定",复位后需重发上次转速(若之前有设定值)才能恢复
+    let extra = ''
+    if (currentRpm > 0) {
+      await enqueue(() => transact(buildWriteSingleReg(slave, ADDR.SPEED_SETPOINT, currentRpm), 8))
+      extra = `, restored rpm=${currentRpm}`
+    }
+    const result = `OK emergency_stop cleared${extra}`
     backendBus.emit({ type: 'executed', action, result })
     return result
   }
