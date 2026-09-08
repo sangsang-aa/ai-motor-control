@@ -59,6 +59,8 @@ export interface BackendError { type: 'error'; message: string }
 export interface BackendInterrupted { type: 'interrupted' }
 export interface BackendExecuted { type: 'executed'; action: string; result: string }
 export interface BackendPong { type: 'pong' }
+/** 5kHz 电流波形批次(下位机攒 100 点,上位机分两段读到) */
+export interface WaveFrame { type: 'wave_frame'; batch: number; samples: number[] }
 export type BackendEvent =
   | BackendStarted
   | SerialStatus
@@ -67,3 +69,4 @@ export type BackendEvent =
   | BackendInterrupted
   | BackendExecuted
   | BackendPong
+  | WaveFrame

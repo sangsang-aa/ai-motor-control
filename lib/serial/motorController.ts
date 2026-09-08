@@ -166,43 +166,49 @@ export async function disconnect(): Promise<void> {
   backendBus.emit({ type: 'serial_status', connected: false, port: '' })
 }
 
-// ── 遥测轮询:单值(转速/电流)+ 5kHz 电流波形批量读(0x03) ──────────
+// ── 遥测轮询(50ms):单值转速/电流,用于顶栏/实时数据 ──────────────
 async function readTelemetry(): Promise<void> {
-  // 单值(转速/电流):用于顶栏/实时数据
   const stResp = await transact(buildReadHoldingRegs(slave, ADDR.ACTUAL_SPEED, 4), 5 + 8)
   const sregs = parseReadHolding(stResp, slave, 4)
   const rpm = regsToFloat32(sregs[0], sregs[1])
   const current = regsToFloat32(sregs[2], sregs[3])
   currentRpm = rpm
   lastCurrent = current
-
-  let seriesIa: number[] = [current]
-  try {
-    // 批次/就绪:0x2200=批次号, 0x2201 bit0=新批次就绪
-    const flagResp = await transact(buildReadHoldingRegs(slave, ADDR.WAVE_SEQ, 2), 5 + 4)
-    const fregs = parseReadHolding(flagResp, slave, 2)
-    if ((fregs[1] & 1) === 1) {
-      // 新批次就绪:分两次读 100 点 float32 电流(每次 100 寄存器=50 点)
-      const r1 = parseReadHolding(await transact(buildReadHoldingRegs(slave, ADDR.CUR_WAVE_BUF, 100), 5 + 200), slave, 100)
-      const r2 = parseReadHolding(await transact(buildReadHoldingRegs(slave, ADDR.CUR_WAVE_BUF + 100, 100), 5 + 200), slave, 100)
-      const regs = [...r1, ...r2]
-      const arr: number[] = []
-      for (let i = 0; i < 100; i++) arr.push(regsToFloat32(regs[i * 2], regs[i * 2 + 1]))
-      seriesIa = arr
-      // 读后清就绪标志
-      await transact(buildWriteSingleReg(slave, ADDR.WAVE_READY, 0), 8)
-    }
-  } catch {
-    // 波形读失败(未实现/超时)则降级为单值
-  }
-
   backendBus.emit({
     type: 'telemetry',
     rpm,
     current,
     seriesRpm: [rpm],
-    seriesIa
+    seriesIa: [current]
   })
+}
+
+// ── 5kHz 电流波形批次读(10Hz):0x2200 状态 → 分两段读(125+75)→ batch 校验 → 清标志 ──
+async function readWaveFrame(): Promise<void> {
+  // 1. 读 batch/status(0x2200 起 2 寄存器):batch=regs[0], newFlag=regs[1]&0x01
+  const flagResp = await transact(buildReadHoldingRegs(slave, ADDR.WAVE_SEQ, 2), 5 + 4)
+  const fregs = parseReadHolding(flagResp, slave, 2)
+  const batch = fregs[0]
+  const newFlag = fregs[1] & 0x01
+  if (newFlag !== 1) return // 无新批次
+
+  // 2. 分两段读数据:0x2000×125 + 0x207D×75(Modbus 单帧≤125)。每 2 寄存器一个 float32(高字在前)
+  const r1 = parseReadHolding(await transact(buildReadHoldingRegs(slave, ADDR.CUR_WAVE_BUF, 125), 5 + 250), slave, 125)
+  const r2 = parseReadHolding(await transact(buildReadHoldingRegs(slave, ADDR.CUR_WAVE_BUF + 125, 75), 5 + 150), slave, 75)
+  const regs = [...r1, ...r2]
+
+  // 3. 再读一次 batch 校验没变(变了 = 读到写一半的数据,丢弃本帧)
+  const chkResp = await transact(buildReadHoldingRegs(slave, ADDR.WAVE_SEQ, 1), 5 + 2)
+  const chkRegs = parseReadHolding(chkResp, slave, 1)
+  if (chkRegs[0] !== batch) return // 批次变了,丢弃
+
+  const samples: number[] = []
+  for (let i = 0; i < regs.length / 2; i++) samples.push(regsToFloat32(regs[i * 2], regs[i * 2 + 1]))
+
+  // 4. 清就绪标志(0x2201 = 0);若固件自动清位,此写亦可为 0 确认
+  try { await transact(buildWriteSingleReg(slave, ADDR.WAVE_READY, 0), 8) } catch { /* 忽略 */ }
+
+  backendBus.emit({ type: 'wave_frame', batch, samples })
 }
 
 async function pollingLoop(): Promise<void> {
@@ -216,9 +222,22 @@ async function pollingLoop(): Promise<void> {
   }
 }
 
+// 波形批次轮询(10Hz):与遥测都走 enqueue 串行化,不与轮询并发出帧
+async function wavePollingLoop(): Promise<void> {
+  while (port && port.readable && pollingActive) {
+    try {
+      await enqueue(readWaveFrame)
+    } catch {
+      // 波形读失败忽略,下一轮重试
+    }
+    await new Promise((r) => setTimeout(r, 100))
+  }
+}
+
 function startPolling(): void {
   pollingActive = true
   pollingLoop()
+  wavePollingLoop()
 }
 
 // ── 命令执行(写寄存器/线圈) ─────────────────────────────────────

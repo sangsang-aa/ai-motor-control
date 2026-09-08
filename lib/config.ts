@@ -1,7 +1,7 @@
 // 前端静态配置 — 迁移自原 config/motor_config.yaml(敏感 LLM 配置在 .env.local,由服务端代理读取)
 
-/** 默认波特率(与已烧录固件 MODBUS_BAUD=115200 一致;1500000 无法整除 25MHz LSPCLK,误差超容差) */
-export const DEFAULT_BAUD = 115200
+/** 默认波特率(与固件 MODBUS_BAUD=781250 一致;115200/1500000 均不匹配,务必用 781250) */
+export const DEFAULT_BAUD = 781250
 
 /** 本地串口桥地址(Windows 端 serial_bridge.py,桥接模式可同时查看通讯日志) */
 export const BRIDGE_URL = 'ws://127.0.0.1:8765'

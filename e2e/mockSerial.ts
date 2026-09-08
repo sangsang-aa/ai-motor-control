@@ -51,6 +51,8 @@ export function fakeSerialInitScript(): string {
       holding.set(0x2000 + i * 2, buf.getUint16(0, false));
       holding.set(0x2000 + i * 2 + 1, buf.getUint16(2, false));
     }
+    // 模拟固件持续攒批:清标志后定时重置就绪位,使 readWaveFrame 持续出帧
+    setInterval(() => { holding.set(0x2201, 1); }, 100);
     window.__sfWrites = [];
     let pushResp = null;
     const crcp = (pdu) => {
