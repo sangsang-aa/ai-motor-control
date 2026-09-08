@@ -36,6 +36,11 @@ export const ADDR = {
   ACTUAL_CURRENT: 0x1002,
   FAULT_CODE: 0x1004,
   STATUS_FLAGS: 0x1005,
+  // 电流波形缓冲(5kHz 采样,100 点 float32;分两次 0x03 读)
+  CUR_WAVE_BUF: 0x2000,
+  CUR_WAVE_BUF_END: 0x21c7,
+  WAVE_SEQ: 0x2200,
+  WAVE_READY: 0x2201,
   // Coil(独立地址空间)
   COIL_MOTOR_EN: 0x0000,
   COIL_FAULT_RESET: 0x0001,

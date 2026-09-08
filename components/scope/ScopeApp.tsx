@@ -34,8 +34,9 @@ export const ScopeApp: React.FC = () => {
         const seriesRpm = e.seriesRpm || []
         if (seriesIa.length > 0 && seriesRpm.length > 0) {
           const payload: number[] = []
-          const len = Math.min(seriesIa.length, seriesRpm.length)
-          for (let i = 0; i < len; i++) payload.push(seriesIa[i] || 0, seriesRpm[i] || 0)
+          const N = Math.max(seriesIa.length, seriesRpm.length)
+          const rpmVal = seriesRpm[0] || 0
+          for (let i = 0; i < N; i++) payload.push(seriesIa[i] || 0, seriesRpm[i] ?? rpmVal)
           if (payload.length > 0) applyFrame(payload, 2)
         }
       }

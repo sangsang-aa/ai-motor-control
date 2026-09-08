@@ -37,6 +37,12 @@ test('示波器:接收串口数据并渲染正常波形(SVG path)', async ({ pag
     const val = await page.locator('text=实时数据').locator('..').locator('b').first().textContent()
     expect(val && parseFloat(val) > 0).toBe(true)
   }).toPass({ timeout: 5000 })
+  // 批量波形:5kHz 采样 100 点 → 波形 path 的 d 应含多段 L(多点曲线,证明批量灌入)
+  await expect(async () => {
+    const d = await page.locator('svg path').first().getAttribute('d')
+    const segments = (d || '').split('L').length - 1
+    expect(segments).toBeGreaterThan(10)
+  }).toPass({ timeout: 5000 })
 })
 
 test('示波器:暂停按钮可切换(暂停逻辑)', async ({ page }) => {

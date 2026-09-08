@@ -166,20 +166,42 @@ export async function disconnect(): Promise<void> {
   backendBus.emit({ type: 'serial_status', connected: false, port: '' })
 }
 
-// ── 遥测轮询(50ms 读 0x03) ───────────────────────────────────────
+// ── 遥测轮询:单值(转速/电流)+ 5kHz 电流波形批量读(0x03) ──────────
 async function readTelemetry(): Promise<void> {
-  const resp = await transact(buildReadHoldingRegs(slave, ADDR.ACTUAL_SPEED, 4), 5 + 8)
-  const regs = parseReadHolding(resp, slave, 4)
-  const rpm = regsToFloat32(regs[0], regs[1])
-  const current = regsToFloat32(regs[2], regs[3])
+  // 单值(转速/电流):用于顶栏/实时数据
+  const stResp = await transact(buildReadHoldingRegs(slave, ADDR.ACTUAL_SPEED, 4), 5 + 8)
+  const sregs = parseReadHolding(stResp, slave, 4)
+  const rpm = regsToFloat32(sregs[0], sregs[1])
+  const current = regsToFloat32(sregs[2], sregs[3])
   currentRpm = rpm
   lastCurrent = current
+
+  let seriesIa: number[] = [current]
+  try {
+    // 批次/就绪:0x2200=批次号, 0x2201 bit0=新批次就绪
+    const flagResp = await transact(buildReadHoldingRegs(slave, ADDR.WAVE_SEQ, 2), 5 + 4)
+    const fregs = parseReadHolding(flagResp, slave, 2)
+    if ((fregs[1] & 1) === 1) {
+      // 新批次就绪:分两次读 100 点 float32 电流(每次 100 寄存器=50 点)
+      const r1 = parseReadHolding(await transact(buildReadHoldingRegs(slave, ADDR.CUR_WAVE_BUF, 100), 5 + 200), slave, 100)
+      const r2 = parseReadHolding(await transact(buildReadHoldingRegs(slave, ADDR.CUR_WAVE_BUF + 100, 100), 5 + 200), slave, 100)
+      const regs = [...r1, ...r2]
+      const arr: number[] = []
+      for (let i = 0; i < 100; i++) arr.push(regsToFloat32(regs[i * 2], regs[i * 2 + 1]))
+      seriesIa = arr
+      // 读后清就绪标志
+      await transact(buildWriteSingleReg(slave, ADDR.WAVE_READY, 0), 8)
+    }
+  } catch {
+    // 波形读失败(未实现/超时)则降级为单值
+  }
+
   backendBus.emit({
     type: 'telemetry',
     rpm,
     current,
     seriesRpm: [rpm],
-    seriesIa: [current]
+    seriesIa
   })
 }
 

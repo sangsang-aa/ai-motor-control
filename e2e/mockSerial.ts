@@ -41,6 +41,16 @@ export function fakeSerialInitScript(): string {
       holding.set(initFlat[i] + 1, initFlat[i+2]);
     }
     const coils = new Map([[0x0000,false],[0x0001,false],[0x0002,false]]);
+    // 预置电流波形缓冲区:0x2200=批次号, 0x2201=新批次就绪(bit0), 0x2000 起 100 点 float32 正弦电流
+    holding.set(0x2200, 1);
+    holding.set(0x2201, 1);
+    for (let i = 0; i < 100; i++) {
+      const f = 500 + 300 * Math.sin(i / 10);
+      const buf = new DataView(new ArrayBuffer(4));
+      buf.setFloat32(0, f, false);
+      holding.set(0x2000 + i * 2, buf.getUint16(0, false));
+      holding.set(0x2000 + i * 2 + 1, buf.getUint16(2, false));
+    }
     window.__sfWrites = [];
     let pushResp = null;
     const crcp = (pdu) => {
