@@ -6,6 +6,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useLangStore, t } from '@/lib/i18n'
 import { EStopButton } from './EStopButton'
+import { sendCommand } from '@/lib/serial/motorController'
 
 interface Props {
   onSend: (text: string) => void
@@ -48,6 +49,13 @@ export const Composer: React.FC<Props> = ({ onSend, disabled, locked, onEStop })
           <span className="composer-tool-pill">工具 <span style={{ fontSize: 9 }}>▾</span></span>
           <span className="composer-tool-pill think">✎ 深度思考</span>
           <EStopButton onEStop={onEStop} />
+          <button
+            onClick={() => sendCommand('clear_emergency_stop', {}).catch((e) => alert(`复位失败: ${e}`))}
+            title="清除急停"
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, background: 'rgba(43,184,168,0.12)', color: '#2bb8a8', border: '1px solid rgba(43,184,168,0.3)', cursor: 'pointer' }}
+          >
+            <span style={{ fontSize: 13 }}>↺</span>复位
+          </button>
           <button onClick={send} disabled={disabled || locked || !text.trim()} className="composer-send" title="发送">
             ↑
           </button>

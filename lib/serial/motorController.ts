@@ -271,6 +271,13 @@ export async function sendCommand(
     backendBus.emit({ type: 'executed', action, result })
     return result
   }
+  if (action === 'clear_emergency_stop') {
+    // 复位:清除急停线圈(0x0002 = OFF),固件随之恢复转速设定
+    await enqueue(() => transact(buildWriteSingleCoil(slave, ADDR.COIL_EMERGENCY_STOP, false), 8))
+    const result = 'OK emergency_stop cleared'
+    backendBus.emit({ type: 'executed', action, result })
+    return result
+  }
   // write_pid_<REG>:payload = { value:number } 写单个 float32 寄存器
   const pidMatch = action.match(/^write_pid_(.+)$/)
   if (pidMatch) {
