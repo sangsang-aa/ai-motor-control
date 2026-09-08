@@ -69,7 +69,10 @@ Next.js (App Router, 纯客户端渲染)
 - 线圈(功能码 01/05/0F,独立地址空间):`COIL_MOTOR_EN`(0x0000)、`COIL_FAULT_RESET`(0x0001)、`COIL_EMERGENCY_STOP`(0x0002)
 - float32 参数占 2 寄存器,big-endian(高字低地址);CRC-16/MODBUS
 - 遥测由主站每 50ms 轮询 0x03 读回(无持续推送帧)→ 示波器数据源
-- **波特率默认 `115200`**(`lib/config.ts`,与已烧录固件 `MODBUS_BAUD=115200` 一致;1500000 无法整除 25MHz LSPCLK,误差超容差)
+- **波特率默认 `781250`**(`lib/config.ts`,与固件 `MODBUS_BAUD=781250` 一致;**务必**用它——115200/1500000 均不匹配)
+- **5kHz 电流波形读取**(`readWaveFrame`,独立 10Hz 轮询,区别于 50ms 遥测):读 `0x2200×2`(batch=regs[0],newFlag=regs[1]&0x01)→ bit0 就绪 → **分两段 `0x2000×125` + `0x207D×75`**(Modbus 单帧≤125)→ 每 2 寄存器拼一个 float32(高字在前)→ 清 `0x2201` → `backendBus.emit({type:'wave_frame',batch,samples})`。**不校验 batch**(固件 `0x2200` 读数据间递增(5ms 增 10)与"每批+1"不符,严格校验必失败致全帧丢弃);若需防"读半批"固件应双缓冲。
+- **`ACTUAL_SPEED/ACTUAL_CURRENT(0x1000/0x1002)` 恒 0**:固件未在 control_loop_tick 更新遥测(仅波形缓冲 0x2000 有数据)。固件"急停时清转速设定"。
+- **复位 = `clear_emergency_stop`**(Composer 工具行"复位"按钮):写急停线圈 `COIL_EMERGENCY_STOP(0x0002)=OFF`,并自动重发上次转速(set_speed currentRpm)恢复固件被清的 SPEED_SETPOINT。急停卡 ON 时转速会一直 0。
 - 转速上限 6000 RPM(安全约束,超限 clamp)
 - **`transact` 读响应带 500ms 超时**(`XACT_TIMEOUT`)— 桥接/从站响应缺失时抛错释放队列,防队列死锁、确认卡无反应
 
@@ -99,6 +102,7 @@ npm run test:unit / test:e2e / test:all   # 测试(playwright 起 3100,非 3000)
 - **LLM 配置推荐走设置面板**(侧栏「设置」→ AI 供应商/Base URL/API Key/模型,存 localStorage),**无需 .env.local**。`/api/llm` 优先用请求带的 `body.config`(设置),env 仅作可选回退。
 - `.env.local`/`.env.example` 不入库;若用服务端默认配置(如生产),复制 `.env.example` => `.env.local` 填真实值。LLM 配置改动只改这两个文件,不写死代码。
 - `next.config.mjs` 说明:Web 版需 `/api/llm`,不能 `next export`(封装 Electron 时再定 A/B 方案)。
+- **Next dev 已知坑**:改代码时 `Fast Refresh` 触发整页 reload;若 reload 窗口期访问 `/api/llm`,会命中 `route.js` ENOENT → `POST /api/llm 500` / `Loading chunk ... failed`。症状是"输入请求 → 强制刷新 → 再输入报错"。**修复**:kill 所有 next 进程 → `rm -rf .next` → 重启 dev → 立即连续 curl `/api/llm` 触发编译。**根治**:稳定阶段用 `npm run build && npm start`(生产一次性生成所有 route.js,无按需编译问题)。
 
 ## 组件约束(Altior 近黑,见 docs/DESIGN.md)
 
