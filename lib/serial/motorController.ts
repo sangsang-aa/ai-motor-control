@@ -62,6 +62,8 @@ function enqueue<T>(fn: () => Promise<T>): Promise<T> {
 
 // ── 单次事务:写请求 → 读固定长度响应(带超时,防桥接/从站响应缺失时队列死锁) ──
 const XACT_TIMEOUT = 500 // ms
+const XACT_MAX_ATTEMPTS = 3
+const XACT_RETRY_DELAY_MS = 20
 // XDS110 虚拟串口在 open 后需要短暂稳定时间；实板验证为 DTR/RTS 均关闭。
 const DIRECT_PORT_SETTLE_MS = 100
 
@@ -82,41 +84,63 @@ async function transact(req: Uint8Array, respLen: number): Promise<Uint8Array> {
   const activeReader = activePort.readable.getReader()
   reader = activeReader
   let pendingRead = activeReader.read()
-  hexBus.emit(req)
-  writer = activePort.writable.getWriter()
-  try {
-    await writer.write(req)
-  } catch (e) {
-    const message = `串口写失败: ${String(e instanceof Error ? e.message : e)}`
-    await closePort(activePort, message)
-    try { await pendingRead } catch { /* closePort 已取消挂起读取 */ }
-    throw new Error(message)
-  } finally {
-    try { writer.releaseLock() } catch { /* 忽略 */ }
-    writer = null
-  }
-  // 等待从站响应(带超时;超时抛错,避免 respLen 读不到时永久卡住队列)
   const resp = new Uint8Array(respLen)
   let got = 0
+  let attempt = 0
+  let expectedLen = respLen
   try {
-    const deadline = Date.now() + XACT_TIMEOUT
-    let expectedLen = respLen
-    while (got < expectedLen) {
-      const remaining = deadline - Date.now()
-      if (remaining <= 0) throw new Error(`读取超时(${XACT_TIMEOUT}ms): 期望 ${respLen} 字节,实收 ${got}`)
-      const { value, done } = await withTimeout(activeReader, pendingRead, remaining)
-      if (done || !value) throw new Error(`串口读取结束: 期望 ${expectedLen} 字节,实收 ${got}`)
-      for (let i = 0; i < value.length && got < respLen; i++) resp[got++] = value[i]
-      // Modbus 异常响应只有 5 字节，必须让上层解析出异常码而不是误报超时。
-      if (got >= 2 && resp[1] === (req[1] | 0x80)) expectedLen = 5
-      if (got < expectedLen) pendingRead = activeReader.read()
+    while (attempt < XACT_MAX_ATTEMPTS && got < expectedLen) {
+      attempt += 1
+      hexBus.emit(req)
+      const activeWriter = activePort.writable.getWriter()
+      writer = activeWriter
+      try {
+        await activeWriter.write(req)
+      } catch (e) {
+        throw new Error(`串口写失败: ${String(e instanceof Error ? e.message : e)}`)
+      } finally {
+        try { activeWriter.releaseLock() } catch { /* 忽略 */ }
+        if (writer === activeWriter) writer = null
+      }
+
+      const deadline = Date.now() + XACT_TIMEOUT
+      let retryEmptyResponse = false
+      while (got < expectedLen) {
+        const remaining = deadline - Date.now()
+        if (remaining <= 0) {
+          if (got === 0 && attempt < XACT_MAX_ATTEMPTS) {
+            retryEmptyResponse = true
+            break
+          }
+          throw new Error(`读取超时(${XACT_TIMEOUT}ms): 期望 ${expectedLen} 字节,实收 ${got}`)
+        }
+        try {
+          const { value, done } = await withTimeout(pendingRead, remaining)
+          if (done || !value) throw new Error(`串口读取结束: 期望 ${expectedLen} 字节,实收 ${got}`)
+          for (let i = 0; i < value.length && got < respLen; i++) resp[got++] = value[i]
+          // Modbus 异常响应只有 5 字节，必须让上层解析出异常码而不是误报超时。
+          if (got >= 2 && resp[1] === (req[1] | 0x80)) expectedLen = 5
+          if (got < expectedLen) pendingRead = activeReader.read()
+        } catch (e) {
+          if (got === 0 && attempt < XACT_MAX_ATTEMPTS && isReadTimeout(e)) {
+            retryEmptyResponse = true
+            break
+          }
+          throw e
+        }
+      }
+      if (retryEmptyResponse) {
+        await new Promise((resolve) => setTimeout(resolve, XACT_RETRY_DELAY_MS))
+      }
     }
     if (got !== expectedLen) throw new Error(`响应长度错误: 期望 ${expectedLen} 字节,实收 ${got}`)
   } catch (e) {
-    // 超时会留下 pending read。取消并关闭当前端口，避免 reader 锁永久占用。
-    const message = `Modbus 事务失败: ${String(e instanceof Error ? e.message : e)}`
+    // 最终失败才取消 pending read 并关闭端口；零字节超时会先在同一读取上重发。
+    const txHex = bytesToHex(req)
+    const rxHex = bytesToHex(resp.slice(0, got)) || '<none>'
+    const message = `Modbus 事务失败: ${String(e instanceof Error ? e.message : e)}; 尝试 ${attempt}/${XACT_MAX_ATTEMPTS}; TX ${txHex}; RX(${got}) ${rxHex}`
     await closePort(activePort, message)
-    throw e
+    throw new Error(message)
   } finally {
     try { activeReader.releaseLock() } catch { /* 已由 closePort 释放时忽略 */ }
     if (reader === activeReader) reader = null
@@ -125,27 +149,27 @@ async function transact(req: Uint8Array, respLen: number): Promise<Uint8Array> {
   return resp.slice(0, got)
 }
 
-/** reader.read 超时时主动取消 pending read，保证 reader 锁可释放。 */
+function bytesToHex(data: Uint8Array): string {
+  return Array.from(data, (value) => value.toString(16).padStart(2, '0')).join(' ')
+}
+
+function isReadTimeout(error: unknown): boolean {
+  return error instanceof Error && error.message.startsWith('桥接/串口读取超时')
+}
+
+/** 给已启动的 reader.read() 加等待上限；最终失败时由 closePort 统一取消。 */
 async function withTimeout(
-  activeReader: ReadableStreamDefaultReader<Uint8Array>,
   pendingRead: Promise<ReadableStreamReadResult<Uint8Array>>,
   ms: number
 ): Promise<ReadableStreamReadResult<Uint8Array>> {
   let timer: ReturnType<typeof setTimeout>
-  let timedOut = false
   const timeout = new Promise<never>((_, rej) => {
     timer = setTimeout(() => {
-      timedOut = true
       rej(new Error(`桥接/串口读取超时 ${ms}ms`))
     }, ms)
   })
   try {
     return await Promise.race([pendingRead, timeout])
-  } catch (e) {
-    if (timedOut) {
-      try { await activeReader.cancel() } catch { /* 端口可能已关闭 */ }
-    }
-    throw e
   } finally {
     clearTimeout(timer!)
   }

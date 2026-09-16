@@ -31,7 +31,7 @@ const INITIAL: number[] = [
 ]
 
 // 生成给 addInitScript 的脚本:把 navigator.serial 模拟为 Modbus 从站(请求-响应)
-export function fakeSerialInitScript(options: { dropFirstResponse?: boolean } = {}): string {
+export function fakeSerialInitScript(options: { dropFirstResponse?: boolean; dropResponseCount?: number } = {}): string {
   const initialEntries = JSON.stringify(INITIAL)
   const mockOptions = JSON.stringify(options)
   return `(() => {
@@ -59,7 +59,7 @@ export function fakeSerialInitScript(options: { dropFirstResponse?: boolean } = 
     window.__sfReadPendingAtWrite = [];
     window.__sfSignals = [];
     let pushResp = null;
-    let responsesToDrop = options.dropFirstResponse ? 1 : 0;
+    let responsesToDrop = options.dropResponseCount ?? (options.dropFirstResponse ? 1 : 0);
     const crcp = (pdu) => {
       const body = Uint8Array.from(pdu);
       let crc = 0xffff;
