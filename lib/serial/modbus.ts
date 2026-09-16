@@ -178,9 +178,48 @@ export function parseReadCoils(resp: Uint8Array, slave: number, count: number): 
   return out
 }
 
-/** 06/05/10/0F 写响应是否回显成功(地址+值一致) */
+/** 校验写响应的通用形状(地址 + 值/数量,共 4 字节)。 */
 export function parseWriteEcho(resp: Uint8Array, slave: number, func: number): boolean {
-  validateResponse(resp, slave, func)
+  const pdu = validateResponse(resp, slave, func)
+  if (pdu.length !== 4) throw new Error(`写响应长度错误: ${pdu.length}`)
+  return true
+}
+
+/** 校验 05/06 的地址和值回显，避免把串扰或错帧误判为写成功。 */
+export function parseWriteSingleEcho(
+  resp: Uint8Array,
+  slave: number,
+  func: number,
+  addr: number,
+  value: number
+): boolean {
+  parseWriteEcho(resp, slave, func)
+  const gotAddr = (resp[2] << 8) | resp[3]
+  const gotValue = (resp[4] << 8) | resp[5]
+  if (gotAddr !== addr || gotValue !== value) {
+    throw new Error(
+      `写回显不匹配: addr=0x${gotAddr.toString(16)}, value=0x${gotValue.toString(16)}`
+    )
+  }
+  return true
+}
+
+/** 校验 0F/10 的起始地址和写入数量回显。 */
+export function parseWriteMultiEcho(
+  resp: Uint8Array,
+  slave: number,
+  func: number,
+  addr: number,
+  count: number
+): boolean {
+  parseWriteEcho(resp, slave, func)
+  const gotAddr = (resp[2] << 8) | resp[3]
+  const gotCount = (resp[4] << 8) | resp[5]
+  if (gotAddr !== addr || gotCount !== count) {
+    throw new Error(
+      `写回显不匹配: addr=0x${gotAddr.toString(16)}, count=${gotCount}`
+    )
+  }
   return true
 }
 

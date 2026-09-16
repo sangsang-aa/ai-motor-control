@@ -1,7 +1,13 @@
 // 前端静态配置 — 迁移自原 config/motor_config.yaml(敏感 LLM 配置在 .env.local,由服务端代理读取)
 
-/** 默认波特率(与固件 MODBUS_BAUD=781250 一致;115200/1500000 均不匹配,务必用 781250) */
+/** 默认波特率(当前控制板的 Modbus RTU 配置,8N1)。 */
 export const DEFAULT_BAUD = 781250
+
+/**
+ * 波形缓冲是控制板固件的可选扩展。未确认实现 0x2000/0x2200 时保持关闭，
+ * 避免可选读取超时影响基础遥测与控制链路。
+ */
+export const WAVE_POLLING_ENABLED = false
 
 /** 本地串口桥地址(Windows 端 serial_bridge.py,桥接模式可同时查看通讯日志) */
 export const BRIDGE_URL = 'ws://127.0.0.1:8765'

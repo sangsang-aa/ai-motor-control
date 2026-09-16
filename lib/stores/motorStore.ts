@@ -38,10 +38,12 @@ export const useMotorStore = create<MotorState>((set, get) => ({
       const disconnected = !event.connected
       set({
         connected: event.connected,
+        disconnectMessage: event.connected ? false : get().disconnectMessage,
         status: {
           ...get().status,
           connected: event.connected,
           port: event.port,
+          ...(event.connected ? { alarmInfo: '' } : {}),
           ...(disconnected ? { rpm: 0, currentIa: 0 } : {})
         }
       })
@@ -63,7 +65,10 @@ export const useMotorStore = create<MotorState>((set, get) => ({
         }
       })
     } else if (event.type === 'error') {
-      set({ disconnectMessage: true })
+      set({
+        disconnectMessage: true,
+        status: { ...get().status, alarmInfo: event.message }
+      })
     }
   },
 

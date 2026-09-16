@@ -12,6 +12,8 @@ import {
   buildWriteMultiRegs,
   buildWriteSingleCoil,
   parseReadHolding,
+  parseWriteMultiEcho,
+  parseWriteSingleEcho,
   float32ToRegs,
   regsToFloat32
 } from '@/lib/serial/modbus'
@@ -99,6 +101,30 @@ describe('response parsing', () => {
   it('throws on modbus exception code', () => {
     const resp = buildResp([1, 0x83, 0x02])
     expect(() => parseReadHolding(resp, 1, 1)).toThrow(/异常码/)
+  })
+})
+
+describe('write response validation', () => {
+  function buildResp(pdu: number[]): Uint8Array {
+    const body = Uint8Array.from(pdu)
+    const crc = crc16(body)
+    return Uint8Array.from([...body, crc & 0xff, (crc >> 8) & 0xff])
+  }
+
+  it('accepts a matching single-register echo', () => {
+    const resp = buildResp([1, 0x06, 0x00, 0x00, 0x0b, 0xb8])
+    expect(parseWriteSingleEcho(resp, 1, 0x06, 0x0000, 3000)).toBe(true)
+  })
+
+  it('rejects a single-write echo for another address or value', () => {
+    const resp = buildResp([1, 0x06, 0x00, 0x01, 0x0b, 0xb8])
+    expect(() => parseWriteSingleEcho(resp, 1, 0x06, 0x0000, 3000)).toThrow(/回显不匹配/)
+  })
+
+  it('accepts only the requested multi-register range', () => {
+    const resp = buildResp([1, 0x10, 0x01, 0x00, 0x00, 0x02])
+    expect(parseWriteMultiEcho(resp, 1, 0x10, 0x0100, 2)).toBe(true)
+    expect(() => parseWriteMultiEcho(resp, 1, 0x10, 0x0100, 3)).toThrow(/回显不匹配/)
   })
 })
 

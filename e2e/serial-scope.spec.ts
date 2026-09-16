@@ -13,9 +13,18 @@ test('串口识别:点击连接后显示已连接 + 设备名', async ({ page })
   await page.locator('header.topbar button', { hasText: '连接串口' }).click()
   await expect(page.locator('header.topbar')).toContainText('已连接')
   await expect(page.locator('header.topbar')).toContainText('USB:2345:6789')
+  const directPortSetup = await page.evaluate(() => ({
+    signals: (window as any).__sfSignals,
+    readerReadyAtWrite: (window as any).__sfReaderReadyAtWrite
+  }))
+  expect(directPortSetup.signals).toEqual([
+    { dataTerminalReady: false, requestToSend: false }
+  ])
+  expect(directPortSetup.readerReadyAtWrite.length).toBeGreaterThan(0)
+  expect(directPortSetup.readerReadyAtWrite.every(Boolean)).toBe(true)
 })
 
-test('示波器:接收串口数据并渲染正常波形(SVG path)', async ({ page }) => {
+test('示波器:接收串口遥测并渲染曲线(SVG path)', async ({ page }) => {
   await page.addInitScript(fakeSerialInitScript())
   await page.goto('/')
   await page.waitForSelector('header.topbar')
@@ -37,11 +46,11 @@ test('示波器:接收串口数据并渲染正常波形(SVG path)', async ({ pag
     const val = await page.locator('text=实时数据').locator('..').locator('b').first().textContent()
     expect(val && parseFloat(val) > 0).toBe(true)
   }).toPass({ timeout: 5000 })
-  // 批量波形:5kHz 采样 100 点 → 波形 path 的 d 应含多段 L(多点曲线,证明批量灌入)
+  // 遥测轮询持续灌入后，SVG path 应形成多点曲线。
   await expect(async () => {
     const d = await page.locator('svg path').first().getAttribute('d')
     const segments = (d || '').split('L').length - 1
-    expect(segments).toBeGreaterThan(10)
+    expect(segments).toBeGreaterThan(1)
   }).toPass({ timeout: 5000 })
 })
 

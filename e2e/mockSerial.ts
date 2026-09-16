@@ -31,9 +31,11 @@ const INITIAL: number[] = [
 ]
 
 // 生成给 addInitScript 的脚本:把 navigator.serial 模拟为 Modbus 从站(请求-响应)
-export function fakeSerialInitScript(): string {
+export function fakeSerialInitScript(options: { dropFirstResponse?: boolean } = {}): string {
   const initialEntries = JSON.stringify(INITIAL)
+  const mockOptions = JSON.stringify(options)
   return `(() => {
+    const options = ${mockOptions};
     const initFlat = ${initialEntries};
     const holding = new Map();
     for (let i = 0; i < initFlat.length; i += 3) {
@@ -54,7 +56,10 @@ export function fakeSerialInitScript(): string {
     // 模拟固件持续攒批:清标志后定时重置就绪位,使 readWaveFrame 持续出帧
     setInterval(() => { holding.set(0x2201, 1); }, 100);
     window.__sfWrites = [];
+    window.__sfReaderReadyAtWrite = [];
+    window.__sfSignals = [];
     let pushResp = null;
+    let responsesToDrop = options.dropFirstResponse ? 1 : 0;
     const crcp = (pdu) => {
       const body = Uint8Array.from(pdu);
       let crc = 0xffff;
@@ -102,16 +107,28 @@ export function fakeSerialInitScript(): string {
     const makePort = () => {
       const port = { readable: null, writable: null };
       const stream = new ReadableStream({ start(c){ pushResp = c; } });
+      let readerAcquired = false;
+      const originalGetReader = stream.getReader.bind(stream);
+      stream.getReader = (...args) => {
+        readerAcquired = true;
+        return originalGetReader(...args);
+      };
       port.readable = stream;
       port.writable = new WritableStream({
         write(chunk) {
           window.__sfWrites.push(Array.from(chunk));
+          window.__sfReaderReadyAtWrite.push(readerAcquired);
           const req = Array.from(chunk);
+          if (responsesToDrop > 0) {
+            responsesToDrop -= 1;
+            return;
+          }
           const resp = handle(req);
           if (pushResp) pushResp.enqueue(new Uint8Array(resp));
         }
       });
       port.open = async () => {};
+      port.setSignals = async (signals) => { window.__sfSignals.push(signals); };
       port.close = async () => {};
       port.getInfo = () => ({ usbVendorId: 0x2345, usbProductId: 0x6789 });
       return port;

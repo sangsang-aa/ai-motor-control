@@ -1,7 +1,7 @@
 # PROJECT KNOWLEDGE BASE
 
 **Generated:** 2026-09-04
-**Branch:** web
+**Base branch:** web
 
 ## HIERARCHY
 - `lib/AGENTS.md` — 核心逻辑域(串口/LLM/store/设置)
@@ -10,11 +10,11 @@
 
 ---
 
-# AGENTS.md — MOTOTUNE (web 分支)
+# AGENTS.md — MOTOTUNE (Web 线)
 
 ## ⚠️ 本分支的重构目的(最高优先级)
 
-本分支 `web/` 是 **MOTOTUNE 从 Electron 桌面版 → Next.js Web 版的重构分支**,与 `main`(Electron x86)、`arm64` 分支并存。
+`web` 线是 **MOTOTUNE 从 Electron 桌面版 → Next.js Web 版的重构线**,与 `main`(Electron x86)、`arm64` 分支并存。其修复分支必须保持同样的 Web Serial 直连约束。
 
 **为什么重构**(与用户确认的决策,勿偏离):
 
@@ -27,7 +27,7 @@
 
 - 方案 A(推荐):`next build` + `next start` 内置运行,窗口加载 localhost:3000
 - 方案 B:`next export` 静态导出 + 主进程直接加载,但 `/api/llm` 代理需搬入 Electron 主进程
-- 串口:新增 `ElectronSerialAdapter`(node-serialport via IPC),替换 `lib/serial/motorController.ts` 内的 Web Serial 实现 —— `SerialAdapter` 抽象是为此预留的,UI/store 层零改动
+- 串口:封装时新增 `ElectronSerialAdapter`(node-serialport via IPC)并先提取适配器接口，再替换 `lib/serial/motorController.ts` 的 Web Serial I/O；UI/store 层不得直接依赖具体串口实现
 
 ## 架构
 
@@ -46,7 +46,7 @@ Next.js (App Router, 纯客户端渲染)
     ├── settings.ts       → localStorage 设置(语言/AI 供应商/baseUrl/apiKey/model)+ useSettingsStore(响应式,Topbar 模型联动)
     ├── i18n.ts           → 中/英字典 + useLangStore(响应式切换)
     ├── serial/modbus.ts → Modbus RTU 协议层(CRC16/01/03/05/06/0F/10 帧 + float32 编解码 + 地址表 ADDR/FC)
-    ├── serial/motorController.ts → Web Serial 适配 + 串行事务队列 + 写命令 + 50ms 轮询遥测
+    ├── serial/motorController.ts → Web Serial 适配 + 串行事务队列 + 超时断开恢复 + 写命令 + 50ms 轮询遥测
     ├── llm/llmClient.ts  → SSE 解析 + abort(浏览器端)
     ├── llm/tools.ts      → 工具定义 TOOLS + 系统提示词 SYSTEM_PROMPT(前后端共用)
     ├── report.ts         → 会话报告导出(Blob 下载)
@@ -69,12 +69,17 @@ Next.js (App Router, 纯客户端渲染)
 - 线圈(功能码 01/05/0F,独立地址空间):`COIL_MOTOR_EN`(0x0000)、`COIL_FAULT_RESET`(0x0001)、`COIL_EMERGENCY_STOP`(0x0002)
 - float32 参数占 2 寄存器,big-endian(高字低地址);CRC-16/MODBUS
 - 遥测由主站每 50ms 轮询 0x03 读回(无持续推送帧)→ 示波器数据源
-- **波特率默认 `781250`**(`lib/config.ts`,与固件 `MODBUS_BAUD=781250` 一致;**务必**用它——115200/1500000 均不匹配)
+- **波特率默认 `781250`**(`lib/config.ts`,与当前控制板固件配置一致;不得沿用旧的 115200/1500000 配置)
 - **5kHz 电流波形读取**(`readWaveFrame`,独立 10Hz 轮询,区别于 50ms 遥测):读 `0x2200×2`(batch=regs[0],newFlag=regs[1]&0x01)→ bit0 就绪 → **分两段 `0x2000×125` + `0x207D×75`**(Modbus 单帧≤125)→ 每 2 寄存器拼一个 float32(高字在前)→ 清 `0x2201` → `backendBus.emit({type:'wave_frame',batch,samples})`。**不校验 batch**(固件 `0x2200` 读数据间递增(5ms 增 10)与"每批+1"不符,严格校验必失败致全帧丢弃);若需防"读半批"固件应双缓冲。
+- **波形轮询开关**:`WAVE_POLLING_ENABLED` 默认 `false`。只有实板确认实现 `0x2000/0x2200` 的波形寄存器后才可开启；可选波形查询超时不得破坏基础遥测/控制连接。
 - **`ACTUAL_SPEED/ACTUAL_CURRENT(0x1000/0x1002)` 恒 0**:固件未在 control_loop_tick 更新遥测(仅波形缓冲 0x2000 有数据)。固件"急停时清转速设定"。
 - **复位 = `clear_emergency_stop`**(Composer 工具行"复位"按钮):写急停线圈 `COIL_EMERGENCY_STOP(0x0002)=OFF`,并自动重发上次转速(set_speed currentRpm)恢复固件被清的 SPEED_SETPOINT。急停卡 ON 时转速会一直 0。
 - 转速上限 6000 RPM(安全约束,超限 clamp)
-- **`transact` 读响应带 500ms 超时**(`XACT_TIMEOUT`)— 桥接/从站响应缺失时抛错释放队列,防队列死锁、确认卡无反应
+- **事务完整性**:`transact` 将所有请求串行化；`05/06/10` 写操作必须校验 CRC、功能码、地址和值/数量回显后才能广播 `executed`。Modbus 异常响应为 5 字节，必须向上抛出异常码。
+- **超时恢复**:`transact` 读响应带 500ms 超时(`XACT_TIMEOUT`)。超时时先取消 pending reader，再关闭当前端口并广播断开状态；不得只释放 Promise 而留下 reader 锁。用户重新连接后才恢复轮询。
+- **XDS110 直连时序**:打开物理端口后，必须显式设置 `DTR=false`、`RTS=false`，并等待 `DIRECT_PORT_SETTLE_MS`(100ms) 再发首个 Modbus 帧；事务必须先获取 reader 再写请求，避免 781250 baud 下约 0.2ms 返回的短帧落在读取空窗。COM4/781250/8N1 上 `01 03 10 00 00 04 40 C9` 的实板响应为 13 字节；不要删除该准备步骤或把 RTS 置为 true。
+- **重连隔离**:轮询绑定连接代次。断开或超时后旧 telemetry/wave 循环不得向新端口继续发帧；新增后台轮询也必须检查当前连接代次。
+- **协议单一来源**:实际烧录控制板固件、`lib/config.ts` 和 `docs/modbus_rtu_protocol.md` 必须同步维护串口参数。当前控制板固定为 781250/8N1/slave 0x01；波形缓冲能力以实际烧录固件为准。
 
 ## Web Serial 已知约束(坑)
 
@@ -124,7 +129,8 @@ npm run test:all                                     # 单测 + E2E 全量
 ```
 
 - **单测(Vitest)**:`unit/`(modbus/llmClient/sessionStore/scopeStore),jsdom 环境。
-- **E2E(Playwright)**:`playwright.config.ts` 用 `webServer` 起 `next dev -p 3100`;`baseURL=http://localhost:3100`。**必须 mock 但勿碰真实 LLM/串口**:LLM 用 `page.route('**/api/llm')`,串口用 `e2e/mockSerial.ts` 的 `fakeSerialInitScript()`(Modbus 从站)。
+- **E2E(Playwright)**:`playwright.config.ts` 用 `webServer` 起 `next dev -p 3100`;`baseURL=http://localhost:3100`。**必须 mock 但勿碰真实 LLM/串口**:LLM 用 `page.route('**/api/llm')`,串口用 `e2e/mockSerial.ts` 的 `fakeSerialInitScript()`(Modbus 从站)。`fakeSerialInitScript({ dropFirstResponse: true })` 用于验证超时断开与重新连接。
+- **通信改动的最低覆盖**:改 Modbus 帧/解析时更新 `unit/modbus.spec.ts`；改事务或重连逻辑时更新 `e2e/serial-recovery.spec.ts`；保留 `serial-scope.spec.ts` 和 `tool-call.spec.ts` 的直连模拟覆盖。浏览器 mock 不能替代 781250 实板验收。
 - **约定**:改布局后检查 e2e 选择器(发送钮 `.composer-send`、侧栏项 `.sb-item`、折叠 title、"新建对话"按钮);侧栏已无拖拽调宽(Altior 固定宽)。
 - Playwright 用 Chromium headless;环境里有 Next dev overlay 可能拦截点击,弹窗/折叠按钮定位用 `dispatchEvent('click')` 或 `data-testid` 更稳。
 

@@ -21,7 +21,7 @@ npm run dev                  # http://localhost:3000
 
 - AI 自然语言控制电机 (set_speed / set_motor_state / get_status)
 - 指令人工确认机制 (30s 超时自动取消) + 急停按钮
-- Web Serial 直连串口,协议: **Modbus RTU**(保持寄存器参数 + 线圈开关,1500000 波特率可调)
+- Web Serial 直连串口,协议: **Modbus RTU**(保持寄存器参数 + 线圈开关,当前控制板默认 781250 波特率)
 - SVG 示波器实时波形 (多通道 + 暂停/HEX 切换 + 通道量程/偏移调节)
 - 会话自动持久化 (localStorage) + HTML 报告导出
 - 双页面:聊天 `/` + 示波器 `/scope`
