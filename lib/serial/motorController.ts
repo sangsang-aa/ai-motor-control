@@ -77,10 +77,11 @@ async function prepareDirectPort(activePort: SerialPort): Promise<void> {
 async function transact(req: Uint8Array, respLen: number): Promise<Uint8Array> {
   const activePort = port
   if (!activePort || !activePort.writable || !activePort.readable) throw new Error('未连接串口')
-  // 781250 baud 下 13 字节响应约 0.2ms 即可到达。必须先持有 reader 再写请求，
-  // 避免部分 Web Serial/USB CDC 实现没有活跃读取者时漏掉快速返回的数据。
+  // 781250 baud 下 13 字节响应约 0.2ms 即可到达。必须先启动 read() 再写请求，
+  // 仅提前持有 reader 锁并不等于底层已有挂起读取。
   const activeReader = activePort.readable.getReader()
   reader = activeReader
+  let pendingRead = activeReader.read()
   hexBus.emit(req)
   writer = activePort.writable.getWriter()
   try {
@@ -88,6 +89,7 @@ async function transact(req: Uint8Array, respLen: number): Promise<Uint8Array> {
   } catch (e) {
     const message = `串口写失败: ${String(e instanceof Error ? e.message : e)}`
     await closePort(activePort, message)
+    try { await pendingRead } catch { /* closePort 已取消挂起读取 */ }
     throw new Error(message)
   } finally {
     try { writer.releaseLock() } catch { /* 忽略 */ }
@@ -102,11 +104,12 @@ async function transact(req: Uint8Array, respLen: number): Promise<Uint8Array> {
     while (got < expectedLen) {
       const remaining = deadline - Date.now()
       if (remaining <= 0) throw new Error(`读取超时(${XACT_TIMEOUT}ms): 期望 ${respLen} 字节,实收 ${got}`)
-      const { value, done } = await withTimeout(activeReader, remaining)
+      const { value, done } = await withTimeout(activeReader, pendingRead, remaining)
       if (done || !value) throw new Error(`串口读取结束: 期望 ${expectedLen} 字节,实收 ${got}`)
       for (let i = 0; i < value.length && got < respLen; i++) resp[got++] = value[i]
       // Modbus 异常响应只有 5 字节，必须让上层解析出异常码而不是误报超时。
       if (got >= 2 && resp[1] === (req[1] | 0x80)) expectedLen = 5
+      if (got < expectedLen) pendingRead = activeReader.read()
     }
     if (got !== expectedLen) throw new Error(`响应长度错误: 期望 ${expectedLen} 字节,实收 ${got}`)
   } catch (e) {
@@ -125,6 +128,7 @@ async function transact(req: Uint8Array, respLen: number): Promise<Uint8Array> {
 /** reader.read 超时时主动取消 pending read，保证 reader 锁可释放。 */
 async function withTimeout(
   activeReader: ReadableStreamDefaultReader<Uint8Array>,
+  pendingRead: Promise<ReadableStreamReadResult<Uint8Array>>,
   ms: number
 ): Promise<ReadableStreamReadResult<Uint8Array>> {
   let timer: ReturnType<typeof setTimeout>
@@ -136,7 +140,7 @@ async function withTimeout(
     }, ms)
   })
   try {
-    return await Promise.race([activeReader.read(), timeout])
+    return await Promise.race([pendingRead, timeout])
   } catch (e) {
     if (timedOut) {
       try { await activeReader.cancel() } catch { /* 端口可能已关闭 */ }

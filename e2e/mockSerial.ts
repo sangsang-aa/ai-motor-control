@@ -56,7 +56,7 @@ export function fakeSerialInitScript(options: { dropFirstResponse?: boolean } = 
     // 模拟固件持续攒批:清标志后定时重置就绪位,使 readWaveFrame 持续出帧
     setInterval(() => { holding.set(0x2201, 1); }, 100);
     window.__sfWrites = [];
-    window.__sfReaderReadyAtWrite = [];
+    window.__sfReadPendingAtWrite = [];
     window.__sfSignals = [];
     let pushResp = null;
     let responsesToDrop = options.dropFirstResponse ? 1 : 0;
@@ -107,17 +107,22 @@ export function fakeSerialInitScript(options: { dropFirstResponse?: boolean } = 
     const makePort = () => {
       const port = { readable: null, writable: null };
       const stream = new ReadableStream({ start(c){ pushResp = c; } });
-      let readerAcquired = false;
+      let readPending = false;
       const originalGetReader = stream.getReader.bind(stream);
       stream.getReader = (...args) => {
-        readerAcquired = true;
-        return originalGetReader(...args);
+        const streamReader = originalGetReader(...args);
+        const originalRead = streamReader.read.bind(streamReader);
+        streamReader.read = (...readArgs) => {
+          readPending = true;
+          return originalRead(...readArgs).finally(() => { readPending = false; });
+        };
+        return streamReader;
       };
       port.readable = stream;
       port.writable = new WritableStream({
         write(chunk) {
           window.__sfWrites.push(Array.from(chunk));
-          window.__sfReaderReadyAtWrite.push(readerAcquired);
+          window.__sfReadPendingAtWrite.push(readPending);
           const req = Array.from(chunk);
           if (responsesToDrop > 0) {
             responsesToDrop -= 1;
