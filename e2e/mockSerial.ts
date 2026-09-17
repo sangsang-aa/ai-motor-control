@@ -31,7 +31,7 @@ const INITIAL: number[] = [
 ]
 
 // 生成给 addInitScript 的脚本:把 navigator.serial 模拟为 Modbus 从站(请求-响应)
-export function fakeSerialInitScript(options: { dropFirstResponse?: boolean; dropResponseCount?: number } = {}): string {
+export function fakeSerialInitScript(options: { dropFirstResponse?: boolean; dropResponseCount?: number; includeSilentSibling?: boolean; rejectDtrSignal?: boolean } = {}): string {
   const initialEntries = JSON.stringify(INITIAL)
   const mockOptions = JSON.stringify(options)
   return `(() => {
@@ -58,7 +58,7 @@ export function fakeSerialInitScript(options: { dropFirstResponse?: boolean; dro
     window.__sfWrites = [];
     window.__sfReadPendingAtWrite = [];
     window.__sfSignals = [];
-    let pushResp = null;
+    window.__sfOpenOptions = [];
     let responsesToDrop = options.dropResponseCount ?? (options.dropFirstResponse ? 1 : 0);
     const crcp = (pdu) => {
       const body = Uint8Array.from(pdu);
@@ -104,8 +104,9 @@ export function fakeSerialInitScript(options: { dropFirstResponse?: boolean; dro
       return crcp([slave, func | 0x80, 0x01]);
     };
 
-    const makePort = () => {
+    const makePort = (silent = false) => {
       const port = { readable: null, writable: null };
+      let pushResp = null;
       const stream = new ReadableStream({ start(c){ pushResp = c; } });
       let readPending = false;
       const originalGetReader = stream.getReader.bind(stream);
@@ -124,6 +125,7 @@ export function fakeSerialInitScript(options: { dropFirstResponse?: boolean; dro
           window.__sfWrites.push(Array.from(chunk));
           window.__sfReadPendingAtWrite.push(readPending);
           const req = Array.from(chunk);
+          if (silent) return;
           if (responsesToDrop > 0) {
             responsesToDrop -= 1;
             return;
@@ -132,14 +134,27 @@ export function fakeSerialInitScript(options: { dropFirstResponse?: boolean; dro
           if (pushResp) pushResp.enqueue(new Uint8Array(resp));
         }
       });
-      port.open = async () => {};
-      port.setSignals = async (signals) => { window.__sfSignals.push(signals); };
+      port.open = async (openOptions) => { window.__sfOpenOptions.push(openOptions); };
+      port.setSignals = async (signals) => {
+        window.__sfSignals.push(signals);
+        if (options.rejectDtrSignal) throw new Error('mock DTR unsupported');
+      };
       port.close = async () => {};
-      port.getInfo = () => ({ usbVendorId: 0x2345, usbProductId: 0x6789 });
+      port.getInfo = () => options.includeSilentSibling
+        ? ({ usbVendorId: 0x0451, usbProductId: 0xbef3 })
+        : ({ usbVendorId: 0x2345, usbProductId: 0x6789 });
       return port;
     };
+    const respondingPort = options.includeSilentSibling ? makePort(false) : null;
+    const silentSibling = options.includeSilentSibling ? makePort(true) : null;
     Object.defineProperty(navigator, 'serial', {
-      value: { requestPort: async () => makePort(), getPorts: async () => [] },
+      value: {
+        requestPort: async (requestOptions) => {
+          window.__sfRequestOptions = requestOptions;
+          return silentSibling ?? makePort();
+        },
+        getPorts: async () => options.includeSilentSibling ? [silentSibling, respondingPort] : []
+      },
       configurable: true
     });
   })()`

@@ -15,10 +15,19 @@ test('串口识别:点击连接后显示已连接 + 设备名', async ({ page })
   await expect(page.locator('header.topbar')).toContainText('USB:2345:6789')
   const directPortSetup = await page.evaluate(() => ({
     signals: (window as any).__sfSignals,
+    openOptions: (window as any).__sfOpenOptions,
     readPendingAtWrite: (window as any).__sfReadPendingAtWrite
   }))
+  expect(directPortSetup.openOptions).toEqual([{
+    baudRate: 781250,
+    dataBits: 8,
+    stopBits: 1,
+    parity: 'none',
+    bufferSize: 4096,
+    flowControl: 'none'
+  }])
   expect(directPortSetup.signals).toEqual([
-    { dataTerminalReady: false, requestToSend: false }
+    { dataTerminalReady: false }
   ])
   expect(directPortSetup.readPendingAtWrite.length).toBeGreaterThan(0)
   expect(directPortSetup.readPendingAtWrite.every(Boolean)).toBe(true)

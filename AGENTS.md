@@ -77,9 +77,11 @@ Next.js (App Router, 纯客户端渲染)
 - 转速上限 6000 RPM(安全约束,超限 clamp)
 - **事务完整性**:`transact` 将所有请求串行化；`05/06/10` 写操作必须校验 CRC、功能码、地址和值/数量回显后才能广播 `executed`。Modbus 异常响应为 5 字节，必须向上抛出异常码。
 - **超时恢复**:`transact` 单次读等待上限为 500ms(`XACT_TIMEOUT`)。零字节超时时保持同一个 pending read 并重发相同帧，最多 3 次；残帧不重发。最终失败才取消 reader、关闭端口并在错误中报告尝试次数及 TX/RX 十六进制；不得只释放 Promise 而留下 reader 锁。
-- **XDS110 直连时序**:打开物理端口后，必须显式设置 `DTR=false`、`RTS=false`，并等待 `DIRECT_PORT_SETTLE_MS`(100ms) 再发首个 Modbus 帧；事务必须在写请求前真正启动 pending `reader.read()`，仅提前获取 reader 锁仍会留下高速响应空窗。COM4/781250/8N1 上 `01 03 10 00 00 04 40 C9` 的实板响应为 13 字节；不要删除该准备步骤或把 RTS 置为 true。
+- **XDS110 直连时序**:打开物理端口后必须显式设置 `DTR=false`，保留 RTS 的 Chromium 默认状态，并等待 `DIRECT_PORT_SETTLE_MS`(100ms) 再发首个 Modbus 帧。COM4 驱动支持 DTR 但不声明支持 RTS 流控，DTR 设置失败必须向用户报告，不能吞掉异常。事务必须在写请求前真正启动 pending `reader.read()`。COM4/781250/8N1 上正确验证帧为 `01 03 10 00 00 04 40 C9`。
+- **XDS110 双接口**:同一 XDS110 会暴露 `MI_00` Application/User UART(COM4)和 `MI_03` Auxiliary Data(COM3)，Web Serial 对两者只暴露相同 VID/PID。直连须限定 TI `0451:bef3`，并对已授权接口逐个做只读 Modbus 验证，不能把用户在选择器中选中的第一个 XDS110 直接视为控制口。
 - **重连隔离**:轮询绑定连接代次。断开或超时后旧 telemetry/wave 循环不得向新端口继续发帧；新增后台轮询也必须检查当前连接代次。
 - **协议单一来源**:实际烧录控制板固件、`lib/config.ts` 和 `docs/modbus_rtu_protocol.md` 必须同步维护串口参数。当前控制板固定为 781250/8N1/slave 0x01；波形缓冲能力以实际烧录固件为准。
+- **实板诊断边界**:已知只读探针帧为 `01 03 10 00 00 04 40 C9`。若 Windows 原生 COM4/781250/8N1 连续读取 5 秒也为 `RX(0)`，不得继续靠前端延长超时或增加重试掩盖问题；先确认目标 CPU 正在运行、从站程序已烧入 Flash、SCI-A GPIO28/29 pinmux/跳线正常，并用逻辑分析仪区分目标 RX 与 TX。
 
 ## Web Serial 已知约束(坑)
 

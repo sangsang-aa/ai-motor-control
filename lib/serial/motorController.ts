@@ -64,16 +64,43 @@ function enqueue<T>(fn: () => Promise<T>): Promise<T> {
 const XACT_TIMEOUT = 500 // ms
 const XACT_MAX_ATTEMPTS = 3
 const XACT_RETRY_DELAY_MS = 20
-// XDS110 虚拟串口在 open 后需要短暂稳定时间；实板验证为 DTR/RTS 均关闭。
+// XDS110 虚拟串口在 open 后需要短暂稳定时间；DTR 必须关闭。
 const DIRECT_PORT_SETTLE_MS = 100
+const XDS110_USB_VENDOR_ID = 0x0451
+const XDS110_USB_PRODUCT_ID = 0xbef3
 
 async function prepareDirectPort(activePort: SerialPort): Promise<void> {
-  // 不让 XDS110 的线路控制状态干扰目标 SCI-A。部分浏览器/驱动不支持该调用，
-  // 此时保持默认状态，但仍等待 CDC 通道稳定。
+  // Chromium 默认启用 DTR/RTS。XDS110 COM4 驱动支持 DTR，但不声明支持 RTS，
+  // 因此只清 DTR，保留 RTS 默认值；失败时不能静默继续使用未知线路状态。
   try {
-    await activePort.setSignals({ dataTerminalReady: false, requestToSend: false })
-  } catch { /* 信号控制不可用时继续使用端口 */ }
+    await activePort.setSignals({ dataTerminalReady: false })
+  } catch (e) {
+    throw new Error(`设置 XDS110 DTR=false 失败: ${String(e instanceof Error ? e.message : e)}`)
+  }
   await new Promise((resolve) => setTimeout(resolve, DIRECT_PORT_SETTLE_MS))
+}
+
+function isXds110Port(candidate: SerialPort): boolean {
+  const info = candidate.getInfo()
+  return info.usbVendorId === XDS110_USB_VENDOR_ID && info.usbProductId === XDS110_USB_PRODUCT_ID
+}
+
+async function openDirectPort(candidate: SerialPort, baudRate: number): Promise<void> {
+  await candidate.open({
+    baudRate,
+    dataBits: 8,
+    stopBits: 1,
+    parity: 'none',
+    bufferSize: 4096,
+    flowControl: 'none'
+  })
+  port = candidate
+  bridgeUrl = null
+  await prepareDirectPort(candidate)
+  currentRpm = 0
+  lastCurrent = 0
+  currentOn = false
+  await verifyModbusConnection()
 }
 
 async function transact(req: Uint8Array, respLen: number): Promise<Uint8Array> {
@@ -191,21 +218,40 @@ export async function connect(baudRate: number = DEFAULT_BAUD): Promise<{ ok: bo
   }
   if (port && port.readable) return { ok: false, error: '已连接' }
   try {
-    const p = await navigator.serial.requestPort()
-    await p.open({ baudRate })
-    port = p
-    await prepareDirectPort(p)
-    currentRpm = 0
-    lastCurrent = 0
-    currentOn = false
-    await verifyModbusConnection()
-    backendBus.emit({ type: 'serial_status', connected: true, port: getPortName(), baudRate })
-    startPolling()
-    return { ok: true }
+    const selected = await navigator.serial.requestPort({
+      filters: [{ usbVendorId: XDS110_USB_VENDOR_ID, usbProductId: XDS110_USB_PRODUCT_ID }]
+    })
+    const granted = await navigator.serial.getPorts()
+    // XDS110 同时暴露 Application/User UART(MI_00)和 Auxiliary Data(MI_03)，
+    // Web Serial 的 getInfo() 对二者只返回相同 VID/PID。逐个只读探测，选择真正响应的接口。
+    const candidates = Array.from(new Set([
+      selected,
+      ...granted.filter(isXds110Port)
+    ]))
+    const failures: string[] = []
+    for (let index = 0; index < candidates.length; index++) {
+      const candidate = candidates[index]
+      try {
+        await openDirectPort(candidate, baudRate)
+        backendBus.emit({ type: 'serial_status', connected: true, port: getPortName(), baudRate })
+        startPolling()
+        return { ok: true }
+      } catch (e) {
+        failures.push(`接口 ${index + 1}: ${String(e instanceof Error ? e.message : e)}`)
+        if (port === candidate) await closePort(candidate)
+        else {
+          try { await candidate.close() } catch { /* open 失败或已关闭 */ }
+        }
+      }
+    }
+    return {
+      ok: false,
+      error: `已探测 ${candidates.length} 个已授权 XDS110 接口，均未收到 Modbus 从站 0x${slave.toString(16)} 的有效响应: ${failures.join(' | ')}`
+    }
   } catch (e) {
     return {
       ok: false,
-      error: `已打开串口但未收到 Modbus 从站 0x${slave.toString(16)} 的有效响应: ${String(e instanceof Error ? e.message : e)}`
+      error: `串口选择或打开失败: ${String(e instanceof Error ? e.message : e)}`
     }
   }
 }
