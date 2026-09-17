@@ -38,7 +38,7 @@ export const ADDR = {
   STATUS_FLAGS: 0x1005,
   // 电流波形缓冲(5kHz 采样,100 点 float32;分两次 0x03 读)
   CUR_WAVE_BUF: 0x2000,
-  CUR_WAVE_BUF_END: 0x21c7,
+  CUR_WAVE_BUF_END: 0x20c7,
   WAVE_SEQ: 0x2200,
   WAVE_READY: 0x2201,
   // Coil(独立地址空间)

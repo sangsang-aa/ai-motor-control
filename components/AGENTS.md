@@ -20,7 +20,7 @@ components/
 │   ├── SettingsPanel.tsx  # 设置弹窗(语言/AI 供应商/API)
 │   └── SearchDialog.tsx   # 搜索对话弹窗(关键词过滤 + 跳转)
 └── scope/       # 示波器页(dominated by ScopeApp)
-    ├── ScopeApp.tsx       # 订阅 backendBus telemetry → scopeStore.applyFrame
+    ├── ScopeApp.tsx       # telemetry 更新数字;wave_frame 替换主示波器整帧
     ├── ScopeChart.tsx     # SVG 波形(rAF),网格 line + 波形 path
     ├── ChannelPanel.tsx   # 每通道 enable/label/bias/V-div/色 + 统计
     ├── HexView.tsx        # 原始字节 HEX 视图
@@ -31,7 +31,7 @@ components/
 | Task | Location | Notes |
 |------|----------|-------|
 | 改聊天布局 | `chat/ChatApp.tsx` | 此处挂弹窗与 Sidebar 回调 |
-| 改示波器数据源 | `scope/ScopeApp.tsx` | telemetry→applyFrame 交错逻辑在此 |
+| 改示波器数据源 | `scope/ScopeApp.tsx` | telemetry 数字与 wave_frame 整帧替换在此 |
 | 改消息/确认 | `chat/ChatPane.tsx` + `chat/ConfirmCard.tsx` | tool_call 锁链 |
 | 改设置/搜索 | `chat/SettingsPanel.tsx` + `chat/SearchDialog.tsx` | 弹窗,overlay 有 data-testid |
 
@@ -39,7 +39,7 @@ components/
 - **聊天→示波器用 `next/link`**(Sidebar/ScopeApp 内),整页刷新会丢串口连接状态
 - **测试定位**:弹窗 overlay 有 `data-testid="search-overlay"`/`search-result`,供 e2e 区分弹窗与侧栏同文本项
 - **侧栏品牌**:顶部白色徽章 FluxPilot 商标(图标 `trademark_image.png` + 文字 `trademark.png`);侧栏为 Altior 固定宽(240px,无拖拽调宽),隐藏按钮(◀)与搜索按钮(🔍)在品牌行右侧
-- **ScopeApp 订阅**:telemetry 单点(50ms 轮询)→ `applyFrame(payload, 2)`,与父文档"600 点帧"已不同
+- **ScopeApp 订阅**:telemetry 单点(50ms 轮询)只更新顶部数字；`wave_frame` 每批 100 点替换主 `ScopeChart`，不追加历史。
 
 ## ANTI-PATTERNS
 - **不要用原生 `<a href>` 跨 chat/scope 导航** — 会整页刷新(必须 `next/link`)

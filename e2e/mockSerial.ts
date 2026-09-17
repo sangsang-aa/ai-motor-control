@@ -43,18 +43,22 @@ export function fakeSerialInitScript(options: { dropFirstResponse?: boolean; dro
       holding.set(initFlat[i] + 1, initFlat[i+2]);
     }
     const coils = new Map([[0x0000,false],[0x0001,false],[0x0002,false]]);
-    // 预置电流波形缓冲区:0x2200=批次号, 0x2201=新批次就绪(bit0), 0x2000 起 100 点 float32 正弦电流
-    holding.set(0x2200, 1);
-    holding.set(0x2201, 1);
-    for (let i = 0; i < 100; i++) {
-      const f = 500 + 300 * Math.sin(i / 10);
-      const buf = new DataView(new ArrayBuffer(4));
-      buf.setFloat32(0, f, false);
-      holding.set(0x2000 + i * 2, buf.getUint16(0, false));
-      holding.set(0x2000 + i * 2 + 1, buf.getUint16(2, false));
-    }
-    // 模拟固件持续攒批:清标志后定时重置就绪位,使 readWaveFrame 持续出帧
-    setInterval(() => { holding.set(0x2201, 1); }, 100);
+    // 模拟固件冻结批次:ACK 后才发布下一批，且批次号/样本都变化。
+    let waveBatch = 0;
+    let wavePublishPending = false;
+    const publishWave = () => {
+      waveBatch = (waveBatch + 1) & 0xffff;
+      holding.set(0x2200, waveBatch);
+      for (let i = 0; i < 100; i++) {
+        const f = Math.cos(i * 2 * Math.PI / 100 + waveBatch * 0.2);
+        const buf = new DataView(new ArrayBuffer(4));
+        buf.setFloat32(0, f, false);
+        holding.set(0x2000 + i * 2, buf.getUint16(0, false));
+        holding.set(0x2000 + i * 2 + 1, buf.getUint16(2, false));
+      }
+      holding.set(0x2201, 1);
+    };
+    publishWave();
     window.__sfWrites = [];
     window.__sfReadPendingAtWrite = [];
     window.__sfSignals = [];
@@ -79,6 +83,10 @@ export function fakeSerialInitScript(options: { dropFirstResponse?: boolean; dro
       if (func === 0x06) {
         const addr = (req[2]<<8)|req[3], val = (req[4]<<8)|req[5];
         holding.set(addr, val);
+        if (addr === 0x2201 && val === 0 && !wavePublishPending) {
+          wavePublishPending = true;
+          setTimeout(() => { publishWave(); wavePublishPending = false; }, 20);
+        }
         return crcp([slave, 6, req[2], req[3], req[4], req[5]]);
       }
       if (func === 0x10) {

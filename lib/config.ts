@@ -4,10 +4,9 @@
 export const DEFAULT_BAUD = 781250
 
 /**
- * 波形缓冲是控制板固件的可选扩展。未确认实现 0x2000/0x2200 时保持关闭，
- * 避免可选读取超时影响基础遥测与控制链路。
+ * F280025C 固件提供 0x2000..0x20C7 波形缓冲和 0x2200/0x2201 帧状态。
  */
-export const WAVE_POLLING_ENABLED = false
+export const WAVE_POLLING_ENABLED = true
 
 /** 本地串口桥地址(Windows 端 serial_bridge.py,桥接模式可同时查看通讯日志) */
 export const BRIDGE_URL = 'ws://127.0.0.1:8765'

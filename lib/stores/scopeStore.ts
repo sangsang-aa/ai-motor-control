@@ -31,7 +31,7 @@ interface SerialStatus {
   error: string | null
 }
 
-export const SAMPLE_TIME_S = 5e-5 // 与 mcb_host/config.py 一致
+export const SAMPLE_TIME_S = 1 / 5000 // 板端电流波形上传采样周期:200 us
 export const DISPLAY_SAMPLES = 4000
 export const N_SAMPLES_MIN = 2
 export const N_SAMPLES_MAX = 1_000_000
@@ -43,6 +43,17 @@ export const PANEL_CHANNEL_SLOTS = 8
 /** 默认 Y 量程(屏幕高度对应的工程值跨度)。
  *  默认 4000 适配 12-bit ADC 原始 counts(0-4096);用户可逐通道调节。 */
 export const DEFAULT_Y_RANGE = 4000
+
+/** 实板通道的默认 V/div；波形 Ia 为 ±1，转速遥测量级约为千 RPM。 */
+function defaultYRangeForSlot(index: number): number {
+  if (index === 0) return 1
+  if (index === 1) return 2500
+  return DEFAULT_Y_RANGE
+}
+
+function defaultBiasForSlot(index: number): number {
+  return index === 1 ? -1 : 0
+}
 
 /** Bias 默认范围(div 偏移,相对屏幕中线)。
  *  bias = 0 → 零线在屏幕中线;±2.5 → 顶/底(满屏 5 div,半屏 = 2.5 div)。
@@ -69,7 +80,7 @@ export interface ChannelRange {
 /** localStorage 持久化 key */
 const LS_CHANNELS_KEY = 'scope.channels'
 /** 持久化 schema 版本号;bias 语义从工程值改为 div 偏移时升 1,加 range 字段时升 2。 */
-const LS_SCHEMA_VERSION = 3
+const LS_SCHEMA_VERSION = 4
 const LS_SCHEMA_KEY = 'scope.schemaVersion'
 
 interface PersistedChannelView {
@@ -147,6 +158,10 @@ export interface ScopeState {
   buffers: Float32Array[]
   // 已填充的样本数(0..N)
   filled: number
+  // 最近一个板端 5 kHz 波形批次号
+  waveBatch: number | null
+  // 上一批完整波形抵达前端的时间；用于保留真实 800ms 时间轴中的采集缺口
+  waveLastReceivedAt: number | null
 
   // 状态(来自 main process)
   status: SerialStatus
@@ -170,6 +185,7 @@ export interface ScopeState {
   setN: (n: number) => void
   setSpan: (span: number, unit: SpanUnit) => void
   applyFrame: (payload: number[], nChannels: number) => void
+  enqueueWaveFrame: (samples: number[], rpm: number, batch: number) => void
   appendHex: (chunk: Uint8Array) => void
   setStatus: (status: SerialStatus) => void
   setErrorMessage: (msg: string | null) => void
@@ -226,8 +242,8 @@ export const useScopeStore = create<ScopeState>((set, get) => ({
     offset: 0,
     unit: '',
     enabled: i < 2,
-    bias: 0,
-    yRange: DEFAULT_Y_RANGE,
+    bias: defaultBiasForSlot(i),
+    yRange: defaultYRangeForSlot(i),
     colorOverride: null,
     label: '',
     range: {}
@@ -241,6 +257,8 @@ export const useScopeStore = create<ScopeState>((set, get) => ({
   spanUnit: 'ms' as SpanUnit,
   buffers: emptyBuffers(DISPLAY_SAMPLES, PANEL_CHANNEL_SLOTS),
   filled: 0,
+  waveBatch: null,
+  waveLastReceivedAt: null,
   status: {
     isOpen: false,
     port: '',
@@ -266,7 +284,20 @@ export const useScopeStore = create<ScopeState>((set, get) => ({
   },
   setCfg: (patch) => set({ cfg: { ...get().cfg, ...patch } }),
   setConnected: (b) => set({ connected: b }),
-  setPaused: (b) => set({ paused: b }),
+  setPaused: (b) => {
+    const state = get()
+    if (!b && state.paused) {
+      set({
+        paused: false,
+        buffers: emptyBuffers(state.n, state.channels.length),
+        filled: 0,
+        waveBatch: null,
+        waveLastReceivedAt: null
+      })
+      return
+    }
+    set({ paused: b })
+  },
   setShowHex: (b) => set({ showHex: b }),
 
   setTs: (ts) => {
@@ -286,6 +317,7 @@ export const useScopeStore = create<ScopeState>((set, get) => ({
       n: clipped,
       buffers: emptyBuffers(clipped, get().channels.length),
       filled: 0,
+      waveLastReceivedAt: null,
       span: t * factor,
       spanUnit: label
     })
@@ -306,6 +338,7 @@ export const useScopeStore = create<ScopeState>((set, get) => ({
       n,
       buffers: emptyBuffers(n, get().channels.length),
       filled: 0,
+      waveLastReceivedAt: null,
       span: actualT * f2,
       spanUnit: label
     })
@@ -338,6 +371,53 @@ export const useScopeStore = create<ScopeState>((set, get) => ({
       }
     }
     set({ filled: Math.min(n, get().filled + pairs) })
+  },
+
+  enqueueWaveFrame: (samples, rpm, batch) => {
+    if (get().paused || samples.length === 0) return
+
+    const state = get()
+    const capacity = state.n
+    const incomingCount = Math.min(capacity, samples.length)
+    const incomingStart = samples.length - incomingCount
+    const receivedAt = Date.now()
+    const elapsedSamples = state.waveLastReceivedAt === null
+      ? capacity
+      : Math.round((receivedAt - state.waveLastReceivedAt) / (SAMPLE_TIME_S * 1000))
+    // 固定 800ms 时间窗口：按真实到达间隔滚动。串口漏掉的区间保留为空白，
+    // 不把彼此不连续的 20ms 批次首尾拼接成伪连续波形。
+    const advanceCount = Math.min(capacity, Math.max(incomingCount, elapsedSamples))
+    const keptCount = capacity - advanceCount
+    const writeStart = capacity - incomingCount
+    const buffers = emptyBuffers(capacity, state.channels.length)
+    for (const buffer of buffers) buffer.fill(Number.NaN)
+
+    for (let channel = 0; channel < buffers.length; channel++) {
+      const previous = state.buffers[channel]
+      if (previous && keptCount > 0) {
+        buffers[channel].set(
+          previous.subarray(Math.max(0, previous.length - keptCount)),
+          0
+        )
+      }
+    }
+    for (let i = 0; i < incomingCount; i++) {
+      const sample = samples[incomingStart + i]
+      buffers[0][writeStart + i] = Number.isFinite(sample) ? sample : 0
+    }
+    if (buffers[1]) {
+      buffers[1].fill(Number.isFinite(rpm) ? rpm : 0, writeStart)
+    }
+
+    set({
+      buffers,
+      filled: capacity,
+      ts: SAMPLE_TIME_S,
+      span: capacity * SAMPLE_TIME_S * 1e3,
+      spanUnit: 'ms',
+      waveBatch: batch,
+      waveLastReceivedAt: receivedAt
+    })
   },
 
   appendHex: (chunk) => {
@@ -396,8 +476,8 @@ export const useScopeStore = create<ScopeState>((set, get) => ({
           offset: phys.offset,
           unit: phys.unit,
           enabled: i < 2,
-          bias: 0,
-          yRange: DEFAULT_Y_RANGE,
+          bias: defaultBiasForSlot(i),
+          yRange: defaultYRangeForSlot(i),
           colorOverride: null,
           label: '',
           range: {}
@@ -412,8 +492,8 @@ export const useScopeStore = create<ScopeState>((set, get) => ({
           offset: 0,
           unit: '',
           enabled: false,
-          bias: 0,
-          yRange: DEFAULT_Y_RANGE,
+          bias: defaultBiasForSlot(i),
+          yRange: defaultYRangeForSlot(i),
           colorOverride: null,
           label: '',
           range: {}
@@ -421,7 +501,12 @@ export const useScopeStore = create<ScopeState>((set, get) => ({
       )
     })
     const n = get().n
-    set({ channels: next, buffers: emptyBuffers(n, nextLen), filled: 0 })
+    set({
+      channels: next,
+      buffers: emptyBuffers(n, nextLen),
+      filled: 0,
+      waveLastReceivedAt: null
+    })
   },
 
   setChannelEnabled: (idx, enabled) => {
@@ -514,7 +599,14 @@ export const useScopeStore = create<ScopeState>((set, get) => ({
   resetBuffers: () => {
     const n = get().n
     const c = get().channels.length
-    set({ buffers: emptyBuffers(n, c), filled: 0, hexFilled: 0 })
+    set({
+      buffers: emptyBuffers(n, c),
+      filled: 0,
+      waveBatch: null,
+      waveLastReceivedAt: null,
+      hexFilled: 0,
+      paused: false
+    })
   },
 
   hydrateFromStorage: () => {

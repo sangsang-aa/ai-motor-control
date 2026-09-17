@@ -323,7 +323,11 @@ async function readTelemetry(): Promise<void> {
   })
 }
 
-// ── 5kHz 电流波形批次读(10Hz):0x2200 状态 → 分两段读(125+75)→ 清标志 ──
+const WAVE_REGISTER_COUNT = 200
+// XDS110 在 Web Serial 下读 255 字节极限帧容易丢尾；改用四个 105 字节响应。
+const WAVE_READ_CHUNK_REGS = 50
+
+// ── 5kHz 电流波形批次读:0x2200 状态 → 分块读取 → 确认消费 ──
 async function readWaveFrame(): Promise<void> {
   // 1. 读 batch/status(0x2200 起 2 寄存器):batch=regs[0], newFlag=regs[1]&0x01
   const flagResp = await transact(buildReadHoldingRegs(slave, ADDR.WAVE_SEQ, 2), 5 + 4)
@@ -332,16 +336,23 @@ async function readWaveFrame(): Promise<void> {
   const newFlag = fregs[1] & 0x01
   if (newFlag !== 1) return // 无新批次
 
-  // 2. 分两段读数据:0x2000×125 + 0x207D×75(Modbus 单帧≤125)。每 2 寄存器一个 float32(高字在前)
-  const r1 = parseReadHolding(await transact(buildReadHoldingRegs(slave, ADDR.CUR_WAVE_BUF, 125), 5 + 250), slave, 125)
-  const r2 = parseReadHolding(await transact(buildReadHoldingRegs(slave, ADDR.CUR_WAVE_BUF + 125, 75), 5 + 150), slave, 75)
-  const regs = [...r1, ...r2]
+  // 2. 分块读完 200 个寄存器。每 2 寄存器一个 float32(高字在前)。
+  const regs: number[] = []
+  for (let offset = 0; offset < WAVE_REGISTER_COUNT; offset += WAVE_READ_CHUNK_REGS) {
+    const count = Math.min(WAVE_READ_CHUNK_REGS, WAVE_REGISTER_COUNT - offset)
+    const response = await transact(
+      buildReadHoldingRegs(slave, ADDR.CUR_WAVE_BUF + offset, count),
+      5 + count * 2
+    )
+    regs.push(...parseReadHolding(response, slave, count))
+  }
 
   const samples: number[] = []
   for (let i = 0; i < regs.length / 2; i++) samples.push(regsToFloat32(regs[i * 2], regs[i * 2 + 1]))
 
-  // 3. 清就绪标志(0x2201 = 0);若固件自动清位,此写亦可为 0 确认
-  try { await transact(buildWriteSingleReg(slave, ADDR.WAVE_READY, 0), 8) } catch { /* 忽略 */ }
+  // 3. 写 0 确认已完整消费冻结批次；回显不正确时不得当作成功。
+  const ack = await transact(buildWriteSingleReg(slave, ADDR.WAVE_READY, 0), 8)
+  parseWriteSingleEcho(ack, slave, 0x06, ADDR.WAVE_READY, 0)
 
   backendBus.emit({ type: 'wave_frame', batch, samples })
 }
@@ -366,7 +377,10 @@ async function pollingLoop(epoch: number): Promise<void> {
   }
 }
 
-// 波形批次轮询(10Hz):与遥测都走 enqueue 串行化,不与轮询并发出帧
+// 100 点 @ 5kHz 每 20ms 产生一批。5ms 检查 ready 以尽量减少等待；
+// XDS110 的多次 USB 往返仍可能漏批，显示层会按到达时间保留这些缺口。
+const WAVE_STATUS_POLL_MS = 5
+
 async function wavePollingLoop(epoch: number): Promise<void> {
   while (isPollingSession(epoch)) {
     try {
@@ -374,10 +388,12 @@ async function wavePollingLoop(epoch: number): Promise<void> {
         if (!isPollingSession(epoch)) return
         await readWaveFrame()
       })
-    } catch {
-      // 波形读失败忽略,下一轮重试
+    } catch (e) {
+      if (isPollingSession(epoch)) {
+        backendBus.emit({ type: 'error', message: `波形读取失败: ${String(e instanceof Error ? e.message : e)}` })
+      }
     }
-    await new Promise((r) => setTimeout(r, 100))
+    await new Promise((r) => setTimeout(r, WAVE_STATUS_POLL_MS))
   }
 }
 

@@ -2,6 +2,7 @@
 
 import { create } from 'zustand'
 import type { MotorStatus, BackendEvent } from '../types'
+import { useScopeStore } from './scopeStore'
 
 interface MotorState {
   status: MotorStatus
@@ -36,17 +37,22 @@ export const useMotorStore = create<MotorState>((set, get) => ({
   applyEvent: (event) => {
     if (event.type === 'serial_status') {
       const disconnected = !event.connected
+      const state = get()
+      if (disconnected) useScopeStore.getState().resetBuffers()
       set({
         connected: event.connected,
-        disconnectMessage: event.connected ? false : get().disconnectMessage,
+        disconnectMessage: event.connected ? false : state.disconnectMessage,
+        ...(disconnected ? { rpmHistory: [], currentHistory: [] } : {}),
         status: {
-          ...get().status,
+          ...state.status,
           connected: event.connected,
           port: event.port,
           ...(event.connected ? { alarmInfo: '' } : {}),
           ...(disconnected ? { rpm: 0, currentIa: 0 } : {})
         }
       })
+    } else if (event.type === 'wave_frame') {
+      useScopeStore.getState().enqueueWaveFrame(event.samples, get().status.rpm, event.batch)
     } else if (event.type === 'telemetry') {
       const state = get()
       const newRpms =

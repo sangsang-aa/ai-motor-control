@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useScopeStore, autoColor, SAMPLE_TIME_S } from '@/lib/stores/scopeStore'
+import { useScopeStore, autoColor } from '@/lib/stores/scopeStore'
 
 /** Padding inside the SVG (top, right, bottom, left) */
 const PAD = { top: 20, right: 160, bottom: 36, left: 60 }
@@ -58,7 +58,10 @@ export default function ScopeChart() {
   }, [])
 
   const { w, h } = dims
-  const iw = w - PAD.left - PAD.right // inner width
+  const compact = w < 640
+  const rightPad = compact ? 16 : PAD.right
+  const timeDivisions = compact ? 4 : 8
+  const iw = w - PAD.left - rightPad // inner width
   const ih = h - PAD.top - PAD.bottom // inner height
 
   // Guard against invisible container
@@ -74,8 +77,8 @@ export default function ScopeChart() {
     const y = PAD.top + (i / 5) * ih
     return y.toFixed(1)
   })
-  const vGridLines = Array.from({ length: 9 }, (_, i) => {
-    const x = PAD.left + (i / 8) * iw
+  const vGridLines = Array.from({ length: timeDivisions + 1 }, (_, i) => {
+    const x = PAD.left + (i / timeDivisions) * iw
     return x.toFixed(1)
   })
 
@@ -102,13 +105,18 @@ export default function ScopeChart() {
     const len = n
     const range = Math.max(1, len - 1 - startIdx)
     let d = ''
+    let penDown = false
     for (let i = startIdx; i < len; i++) {
       const v = buf[i]
-      if (!Number.isFinite(v)) continue
+      if (!Number.isFinite(v)) {
+        penDown = false
+        continue
+      }
       const x = PAD.left + ((i - startIdx) / range) * iw
       const y = centerY - (ch.bias + v / ch.yRange) * (ih / 5)
-      if (d === '') {
-        d = `M ${x.toFixed(1)} ${y.toFixed(1)}`
+      if (!penDown) {
+        d += `${d ? ' ' : ''}M ${x.toFixed(1)} ${y.toFixed(1)}`
+        penDown = true
       } else {
         d += ` L ${x.toFixed(1)} ${y.toFixed(1)}`
       }
@@ -132,7 +140,7 @@ export default function ScopeChart() {
             key={`hg${i}`}
             x1={PAD.left}
             y1={y}
-            x2={w - PAD.right}
+            x2={w - rightPad}
             y2={y}
             stroke="#2a2a2a"
             strokeWidth={i === 3 ? 1 : 0.5 /* centre line slightly brighter */}
@@ -185,7 +193,7 @@ export default function ScopeChart() {
 
         {/* X-axis time tick labels */}
         {vGridLines.map((x, i) => {
-          const t = (i / 8) * span
+          const t = (i / timeDivisions) * span
           return (
             <text
               key={`xt${i}`}
@@ -194,7 +202,7 @@ export default function ScopeChart() {
               fill="#9aa0a6"
               fontSize={9}
               fontFamily="monospace"
-              textAnchor="middle"
+              textAnchor={i === 0 ? 'start' : i === timeDivisions ? 'end' : 'middle'}
             >
               {fmtNum(t)} {spanUnit}
             </text>
@@ -222,7 +230,7 @@ export default function ScopeChart() {
               <line
                 x1={PAD.left + 4}
                 y1={y0.toFixed(1)}
-                x2={(w - PAD.right).toFixed(1)}
+                x2={(w - rightPad).toFixed(1)}
                 y2={y0.toFixed(1)}
                 stroke={color}
                 strokeWidth={0.8}
@@ -244,7 +252,7 @@ export default function ScopeChart() {
         })}
 
         {/* Legend overlay (top-right) */}
-        {legend.length > 0 && (
+        {!compact && legend.length > 0 && (
           <g>
             <rect
               x={w - PAD.right + 8}

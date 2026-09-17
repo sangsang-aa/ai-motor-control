@@ -18,3 +18,7 @@ next-env.d.ts
 test-results/
 playwright-report/
 
+# 工具运行时/配置(不入项目仓库)
+.omo/
+.opencode/
+

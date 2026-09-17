@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
   // 无 .env.local 也可用:用户在设置面板填入 AI 供应商信息即可,key 存 localStorage 随请求传递。
   const baseUrl = cfg.baseUrl || process.env.LLM_BASE_URL || ''
   const apiKey = cfg.apiKey || process.env.LLM_API_KEY || ''
-  const model = cfg.model || process.env.LLM_MODEL || 'qwen-plus'
+  const model = cfg.model || process.env.LLM_MODEL || ''
   if (!baseUrl || !apiKey) {
     return new Response('LLM 未配置: 请在设置的"AI 供应商"中填入 API Key(或配置服务端 .env.local)', { status: 500 })
   }

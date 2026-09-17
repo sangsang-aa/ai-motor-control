@@ -17,42 +17,23 @@ import { useLangStore, t } from '@/lib/i18n'
 export const ScopeApp: React.FC = () => {
   const lang = useLangStore((s) => s.lang)
   const { status, connected, applyEvent } = useMotorStore()
-  const applyFrame = useScopeStore((s) => s.applyFrame)
   const appendHex = useScopeStore((s) => s.appendHex)
   const [panelW, setPanelW] = useState(280)
   const showHex = useScopeStore((s) => s.showHex)
   const channels = useScopeStore((s) => s.channels)
   const buffers = useScopeStore((s) => s.buffers)
   const n = useScopeStore((s) => s.n)
+  const waveBatch = useScopeStore((s) => s.waveBatch)
   const dragging = useRef(false)
+  const latestCurrent = waveBatch === null
+    ? status.currentIa
+    : buffers[0]?.[n - 1] ?? status.currentIa
 
   useEffect(() => {
-    const u1 = backendBus.on((e) => {
-      applyEvent(e)
-      if (e.type === 'wave_frame') {
-        // 100 点电流波形直接灌进主示波器 ScopeChart(通道0 = 电流,通道1 = 转速平线)
-        const st = useScopeStore.getState()
-        const rpm = useMotorStore.getState().status.rpm || 0
-        const payload: number[] = []
-        for (const s of e.samples) payload.push(s, rpm)
-        if (payload.length > 0) st.applyFrame(payload, 2)
-        return
-      }
-      if (e.type === 'telemetry') {
-        const seriesIa = e.seriesIa || []
-        const seriesRpm = e.seriesRpm || []
-        if (seriesIa.length > 0 && seriesRpm.length > 0) {
-          const payload: number[] = []
-          const N = Math.max(seriesIa.length, seriesRpm.length)
-          const rpmVal = seriesRpm[0] || 0
-          for (let i = 0; i < N; i++) payload.push(seriesIa[i] || 0, seriesRpm[i] ?? rpmVal)
-          if (payload.length > 0) applyFrame(payload, 2)
-        }
-      }
-    })
+    const u1 = backendBus.on(applyEvent)
     const u2 = hexBus.on((bytes) => appendHex(bytes))
     return () => { u1(); u2() }
-  }, [applyEvent, applyFrame, appendHex])
+  }, [applyEvent, appendHex])
 
   useEffect(() => {
     const s = useScopeStore.getState()
@@ -89,30 +70,28 @@ export const ScopeApp: React.FC = () => {
           <HexToggle />
         </div>
       </header>
-      <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
-        <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '8px 14px', borderBottom: '1px solid #2a2a2a', flexShrink: 0, background: '#111111' }}>
+      <div className="scope-workspace" style={{ flex: 1, display: 'flex', minHeight: 0 }}>
+        <div className="scope-plot-area" style={{ flex: 1, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 16, padding: '8px 14px', borderBottom: '1px solid #2a2a2a', flexShrink: 0, background: '#111111' }}>
             <span style={{ fontSize: 12, fontWeight: 700, color: '#ececec', marginRight: 4 }}>{t(lang, 'realtime')}</span>
-            {channels.map((ch, i) => {
-              if (!ch.enabled) return null
-              const buf = buffers[i]
-              const val = buf ? buf[n - 1] ?? 0 : 0
-              const color = ch.colorOverride || autoColor(i)
-              return (
-                <span key={ch.name + i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#9aa0a6' }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
-                  <span>{ch.label || ch.name}</span>
-                  <b style={{ color: '#ececec', fontFamily: "'JetBrains Mono',Consolas,monospace" }}>{val.toFixed(2)}</b>
-                  {ch.unit && <span style={{ fontSize: 10, color: '#6b7075' }}>{ch.unit}</span>}
-                </span>
-              )
-            })}
+            <span data-testid="realtime-current" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#9aa0a6' }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: channels[0]?.colorOverride || autoColor(0) }} />
+              <span>Ia</span>
+              <b style={{ color: '#ececec', fontFamily: "'JetBrains Mono',Consolas,monospace" }}>{latestCurrent.toFixed(3)}</b>
+              <span style={{ fontSize: 10, color: '#6b7075' }}>A</span>
+            </span>
+            <span data-testid="realtime-speed" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#9aa0a6' }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: channels[1]?.colorOverride || autoColor(1) }} />
+              <span>Speed</span>
+              <b style={{ color: '#ececec', fontFamily: "'JetBrains Mono',Consolas,monospace" }}>{status.rpm.toFixed(0)}</b>
+              <span style={{ fontSize: 10, color: '#6b7075' }}>RPM</span>
+            </span>
           </div>
           <div style={{ flex: 1, minHeight: 0 }}>
             {showHex ? <HexView /> : <ScopeChart />}
           </div>
         </div>
-        <div onMouseDown={onMouseDown}
+        <div className="scope-resizer" onMouseDown={onMouseDown}
           style={{ width: 4, cursor: 'col-resize', flexShrink: 0, transition: 'background 0.15s' }}
           ref={(el) => {
             if (el) {
@@ -121,7 +100,7 @@ export const ScopeApp: React.FC = () => {
               el.onmouseleave = () => { el.style.background = '#2a2a2a' }
             }
           }} />
-        <div style={{ width: panelW, flexShrink: 0, borderLeft: '1px solid #2a2a2a', background: '#121212', overflowY: 'auto' }}>
+        <div className="scope-channel-panel" style={{ width: panelW, flexShrink: 0, borderLeft: '1px solid #2a2a2a', background: '#121212', overflowY: 'auto' }}>
           <ChannelPanel />
         </div>
       </div>

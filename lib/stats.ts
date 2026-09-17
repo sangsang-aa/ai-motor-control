@@ -13,12 +13,17 @@ export function computeStats(buf: Float32Array, n: number, filled: number): Chan
   let min = Infinity
   let max = -Infinity
   let sum = 0
-  const count = n - start
+  let count = 0
+  let last = 0
   for (let i = start; i < n; i++) {
     const v = buf[i]
+    if (!Number.isFinite(v)) continue
     if (v < min) min = v
     if (v > max) max = v
     sum += v
+    count += 1
+    last = v
   }
-  return { min, max, avg: sum / count, last: buf[n - 1] ?? 0 }
+  if (count === 0) return { min: 0, max: 0, avg: 0, last: 0 }
+  return { min, max, avg: sum / count, last }
 }

@@ -58,7 +58,7 @@ Next.js (App Router, 纯客户端渲染)
 - **事件**:`motorController`(串口)→ `backendBus` → `ChatApp`/`ScopeApp` 订阅 → store。替代 Electron 的 `motor:event` 广播。
 - **LLM**:Composer → `llmClient.sendMessage` → `llmBus` → `ChatApp` 统一处理(text 追加 / tool_call 锁链)。**无条件发 turn_end**(即使只有 tool_call,否则 inflight 锁死 — 从 Electron 版继承的坑)。
 - **命令锁链**:`tool_call` → `lock.lock()` → `setPendingToolCall` → ChatPane `ConfirmCard` → 确认 → `motorController.sendCommand` → `executed` 事件 → `lock.unlock()`。30s 超时自动取消。`get_status` 免确认自动执行。`set_motor_state`/`sendCommand` 走 Modbus,`write_pid_<REG>` 写保存寄存器(供 AI 自调整)。
-- **示波器**:telemetry 轮询 → `ScopeApp` 交错 Ia/RPM → `scopeStore.applyFrame(payload, 2)` → `ScopeChart`(SVG rAF)。波形区上方"实时数据"条遍历 `channels` 显示当前值(通道名跟随 `label||name`,即 ChannelPanel 命名)。原始字节 → `hexBus` → `appendHex`。
+- **示波器**:50ms telemetry 只更新实时电流/转速数字；5kHz `wave_frame` → `scopeStore.enqueueWaveFrame` 每批整体替换 100 点缓冲 → 唯一 `ScopeChart`(SVG rAF)。原始字节 → `hexBus` → `appendHex`。
 - **持久化**:会话存 localStorage(`mototune.sessions`),示波器通道配置存 localStorage(`scope.*`),设置存 localStorage(`mototune.settings`)。
 - **设置响应式**:`useSettingsStore`(zustand)是设置唯一响应式源;`saveSettings`/`loadSettings` 都会写它。**组件订阅 store 而非直接读 localStorage**——否则改模型/供应商不刷新(曾 bug:Topbar 模型名残留 qwen)。
 - **空消息防御**:`sessionStore.applyLlmEvent` 对空 content 的 text 不新建消息;`ChatApp` tool_call 时不再追加空 text——避免"空气泡"。新增消息给 content 若为空串直接跳过。
@@ -70,9 +70,9 @@ Next.js (App Router, 纯客户端渲染)
 - float32 参数占 2 寄存器,big-endian(高字低地址);CRC-16/MODBUS
 - 遥测由主站每 50ms 轮询 0x03 读回(无持续推送帧)→ 示波器数据源
 - **波特率默认 `781250`**(`lib/config.ts`,与当前控制板固件配置一致;不得沿用旧的 115200/1500000 配置)
-- **5kHz 电流波形读取**(`readWaveFrame`,独立 10Hz 轮询,区别于 50ms 遥测):读 `0x2200×2`(batch=regs[0],newFlag=regs[1]&0x01)→ bit0 就绪 → **分两段 `0x2000×125` + `0x207D×75`**(Modbus 单帧≤125)→ 每 2 寄存器拼一个 float32(高字在前)→ 清 `0x2201` → `backendBus.emit({type:'wave_frame',batch,samples})`。**不校验 batch**(固件 `0x2200` 读数据间递增(5ms 增 10)与"每批+1"不符,严格校验必失败致全帧丢弃);若需防"读半批"固件应双缓冲。
-- **波形轮询开关**:`WAVE_POLLING_ENABLED` 默认 `false`。只有实板确认实现 `0x2000/0x2200` 的波形寄存器后才可开启；可选波形查询超时不得破坏基础遥测/控制连接。
-- **`ACTUAL_SPEED/ACTUAL_CURRENT(0x1000/0x1002)` 恒 0**:固件未在 control_loop_tick 更新遥测(仅波形缓冲 0x2000 有数据)。固件"急停时清转速设定"。
+- **5kHz 电流波形读取**(`readWaveFrame`,每 5ms 检查 ready,区别于 50ms 遥测):读 `0x2200×2` 确认 ready → **四段 `0x2000/0x2032/0x2064/0x2096 × 50`** → 每 2 寄存器拼一个 float32 → 写 `0x2201=0` 并校验 `0x06` 回显 → `wave_frame`。分块使 Web Serial/XDS110 不再依赖 255 字节极限响应；冻结单批协议仍可能因 USB 往返延迟漏掉候选批，示波器按实际到达时间保留缺口。
+- **波形轮询开关**:`WAVE_POLLING_ENABLED` 默认 `true`；当前烧录固件已经连续多批实板验证 `0x2000/0x2200`。
+- **`ACTUAL_SPEED/ACTUAL_CURRENT(0x1000/0x1002)`**:当前测试固件以转速设定值回显 `ACTUAL_SPEED`；实际编码器闭环仍需在 `control_loop_tick` 接入。急停时会清转速设定。
 - **复位 = `clear_emergency_stop`**(Composer 工具行"复位"按钮):写急停线圈 `COIL_EMERGENCY_STOP(0x0002)=OFF`,并自动重发上次转速(set_speed currentRpm)恢复固件被清的 SPEED_SETPOINT。急停卡 ON 时转速会一直 0。
 - 转速上限 6000 RPM(安全约束,超限 clamp)
 - **事务完整性**:`transact` 将所有请求串行化；`05/06/10` 写操作必须校验 CRC、功能码、地址和值/数量回显后才能广播 `executed`。Modbus 异常响应为 5 字节，必须向上抛出异常码。
