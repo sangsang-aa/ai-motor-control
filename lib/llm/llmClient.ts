@@ -19,7 +19,8 @@ export function abort(): void {
 export async function sendMessage(
   text: string,
   history: Message[],
-  onEvent: (e: LlmEvent) => void
+  onEvent: (e: LlmEvent) => void,
+  systemPrompt?: string
 ): Promise<void> {
   controller = new AbortController()
   const signal = controller.signal
@@ -34,7 +35,7 @@ export async function sendMessage(
       method: 'POST',
       signal,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, history, config })
+      body: JSON.stringify({ text, history, config, systemPrompt })
     })
     if (!response.ok) {
       const msg = await response.text().catch(() => '')

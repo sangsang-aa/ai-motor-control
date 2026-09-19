@@ -84,3 +84,32 @@ describe('sessionStore', () => {
     expect(st.currentId).toBe(b)
   })
 })
+
+describe('sessionStore systemPrompt(会话级提示词)', () => {
+  it('sets prompt on current session and persists', () => {
+    useSessionStore.getState().createSession()
+    const cid = useSessionStore.getState().currentId!
+    useSessionStore.getState().setSystemPrompt('你是一个电机调参助手')
+    expect(useSessionStore.getState().sessions[cid].systemPrompt).toBe('你是一个电机调参助手')
+    const raw = JSON.parse(localStorage.getItem('mototune.sessions')!)
+    expect(raw[cid].systemPrompt).toBe('你是一个电机调参助手')
+  })
+
+  it('is per-session (does not leak to other sessions)', () => {
+    const a = useSessionStore.getState().createSession()
+    useSessionStore.getState().setSystemPrompt('A 的提示词')
+    const b = useSessionStore.getState().createSession()
+    useSessionStore.getState().setSystemPrompt('B 的提示词')
+    const st = useSessionStore.getState()
+    expect(st.sessions[a].systemPrompt).toBe('A 的提示词')
+    expect(st.sessions[b].systemPrompt).toBe('B 的提示词')
+  })
+
+  it('is removed together with the session', () => {
+    const id = useSessionStore.getState().createSession()
+    useSessionStore.getState().setSystemPrompt('临时提示词')
+    useSessionStore.getState().deleteSession(id)
+    const raw = JSON.parse(localStorage.getItem('mototune.sessions') || '{}')
+    expect(raw[id]).toBeUndefined()
+  })
+})

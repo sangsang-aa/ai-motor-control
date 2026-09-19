@@ -59,3 +59,27 @@ test('设置改模型后 Topbar 即时更新(响应式)', async ({ page }) => {
   // Topbar 模型 pill 应显示 deepseek-chat(而非 qwen)
   await expect(page.locator('.model-pill')).toContainText('deepseek-chat')
 })
+
+test('对话设置:输入提示词并随请求发送,随会话保存', async ({ page }) => {
+  let sentSystemPrompt: string | undefined
+  await page.route('**/api/llm', (route) => {
+    try { sentSystemPrompt = JSON.parse(route.request().postData() || '{}').systemPrompt } catch { /* ignore */ }
+    route.fulfill({ status: 200, contentType: 'text/event-stream', body: 'data: [DONE]\n\n' })
+  })
+  await page.goto('/')
+  await page.waitForSelector('aside.sidebar')
+  await page.locator('button', { hasText: '新建对话' }).click()
+  // 打开 "+" 菜单 → 对话设置
+  await page.locator('[data-testid="composer-plus-menu"]').count()
+  await page.locator('button[title="附加"]').click()
+  await page.locator('[data-testid="menu-conv-settings"]').click()
+  await page.locator('[data-testid="conv-system-prompt"]').fill('你是电机调参助手，只输出简洁结论')
+  await page.locator('[data-testid="conv-save"]').click()
+  // 发送消息 → 请求体应带该 systemPrompt
+  await page.locator('textarea').fill('你好')
+  await page.locator('.composer-send').click()
+  await expect.poll(() => sentSystemPrompt).toBe('你是电机调参助手，只输出简洁结论')
+  // 持久化:刷新后仍保留
+  const raw = await page.evaluate(() => localStorage.getItem('mototune.sessions'))
+  expect(raw).toContain('你是电机调参助手')
+})

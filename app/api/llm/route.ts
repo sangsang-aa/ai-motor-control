@@ -17,11 +17,13 @@ export async function POST(req: NextRequest) {
   let text: string
   let history: Message[]
   let cfg: { baseUrl?: string; apiKey?: string; model?: string } = {}
+  let systemPrompt: string | undefined
   try {
     const body = await req.json()
     text = String(body.text ?? '')
     history = Array.isArray(body.history) ? body.history : []
     cfg = body.config && typeof body.config === 'object' ? body.config : {}
+    systemPrompt = typeof body.systemPrompt === 'string' ? body.systemPrompt : undefined
   } catch {
     return new Response('invalid body', { status: 400 })
   }
@@ -37,7 +39,7 @@ export async function POST(req: NextRequest) {
   }
 
   const messages = [
-    { role: 'system', content: SYSTEM_PROMPT },
+    { role: 'system', content: systemPrompt?.trim() || SYSTEM_PROMPT },
     ...history.map((m) => ({ role: m.role, content: m.content })),
     { role: 'user', content: text }
   ]

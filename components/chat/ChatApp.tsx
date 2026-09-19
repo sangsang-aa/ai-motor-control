@@ -64,7 +64,8 @@ export const ChatApp: React.FC = () => {
     if (!cid) { cid = st.createSession(); st.selectSession(cid) }
     st.pushUserMessage(text)
     const history = st.sessions[cid]?.messages || []
-    sendMessage(text, history, (e) => llmBus.emit(e)).catch(console.error)
+    const systemPrompt = st.sessions[cid]?.systemPrompt
+    sendMessage(text, history, (e) => llmBus.emit(e), systemPrompt).catch(console.error)
   }, [lock.status])
 
   useEffect(() => {

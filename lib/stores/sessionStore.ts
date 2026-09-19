@@ -24,6 +24,7 @@ interface SessionState {
   pushUserMessage: (text: string) => void
   applyLlmEvent: (event: LlmEvent) => void
   setInflight: (v: boolean) => void
+  setSystemPrompt: (prompt: string) => void
 }
 
 function persist(state: { sessions: Record<string, Session>; order: string[] }) {
@@ -188,5 +189,16 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     persist(get())
   },
 
-  setInflight: (v) => set({ inflight: v })
+  setInflight: (v) => set({ inflight: v }),
+
+  setSystemPrompt: (prompt) => {
+    const { currentId, sessions } = get()
+    if (!currentId) return
+    const s = sessions[currentId]
+    if (!s) return
+    set((st) => ({
+      sessions: { ...st.sessions, [currentId]: { ...s, systemPrompt: prompt, updatedAt: Date.now() } }
+    }))
+    persist(get())
+  }
 }))

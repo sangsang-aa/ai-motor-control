@@ -6,6 +6,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useLangStore, t } from '@/lib/i18n'
 import { EStopButton } from './EStopButton'
+import { ConversationSettingsPanel } from './ConversationSettingsPanel'
 import { sendCommand } from '@/lib/serial/motorController'
 
 interface Props {
@@ -18,6 +19,8 @@ interface Props {
 export const Composer: React.FC<Props> = ({ onSend, disabled, locked, onEStop }) => {
   const lang = useLangStore((s) => s.lang)
   const [text, setText] = useState('')
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [convOpen, setConvOpen] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const send = () => {
     const tx = text.trim()
@@ -45,7 +48,14 @@ export const Composer: React.FC<Props> = ({ onSend, disabled, locked, onEStop })
           disabled={disabled || locked}
         />
         <div className="composer-tools">
-          <button className="composer-tool-pill" style={{ width: 30, height: 30, padding: 0, justifyContent: 'center', borderRadius: 8 }} title="附加">＋</button>
+          <span style={{ position: 'relative' }}>
+            <button className="composer-tool-pill" style={{ width: 30, height: 30, padding: 0, justifyContent: 'center', borderRadius: 8 }} title="附加" onClick={() => setMenuOpen((v) => !v)}>＋</button>
+            {menuOpen && (
+              <div data-testid="composer-plus-menu" style={{ position: 'absolute', bottom: 38, left: 0, zIndex: 20, background: '#1c1c1c', border: '1px solid #2a2a2a', borderRadius: 8, padding: 4, minWidth: 140, boxShadow: '0 4px 16px rgba(0,0,0,0.4)' }}>
+                <button onClick={() => { setMenuOpen(false); setConvOpen(true) }} data-testid="menu-conv-settings" style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', borderRadius: 6, background: 'none', border: 'none', color: '#ececec', fontSize: 13, cursor: 'pointer' }}>对话设置</button>
+              </div>
+            )}
+          </span>
           <span className="composer-tool-pill">工具 <span style={{ fontSize: 9 }}>▾</span></span>
           <span className="composer-tool-pill think">✎ 深度思考</span>
           <EStopButton onEStop={onEStop} />
@@ -61,6 +71,7 @@ export const Composer: React.FC<Props> = ({ onSend, disabled, locked, onEStop })
           </button>
         </div>
       </div>
+      {convOpen && <ConversationSettingsPanel onClose={() => setConvOpen(false)} />}
     </div>
   )
 }

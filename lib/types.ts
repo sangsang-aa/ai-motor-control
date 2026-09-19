@@ -10,6 +10,8 @@ export interface Session {
   updatedAt: number
   status: SessionStatus
   messages: Message[]
+  /** 会话级自定义提示词(对话设置);随会话持久化/删除,仅作用于本会话 */
+  systemPrompt?: string
 }
 
 export interface Message {
