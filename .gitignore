@@ -20,5 +20,8 @@ playwright-report/
 
 # 工具运行时/配置(不入项目仓库)
 .omo/
-.opencode/
+.opencode/*
+# 例外:项目级 skill 随仓库走
+!.opencode/skills/
+!.opencode/skills/**
 

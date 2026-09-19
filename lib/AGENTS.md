@@ -1,7 +1,7 @@
 # lib/ — 核心逻辑域
 
 **Generated:** 2026-09-04
-**Branch:** web
+**Branch:** fix/web-serial-reliability
 
 ## OVERVIEW
 全部业务逻辑层(无 UI):串口协议、LLM 客户端、zustand 状态、设置/i18n、工具函数。**组件不可直接访问 `lib` 外部状态接口,统一经 store/bus。**

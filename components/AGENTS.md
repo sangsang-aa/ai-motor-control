@@ -1,7 +1,7 @@
 # components/ — 业务组件域
 
 **Generated:** 2026-09-04
-**Branch:** web
+**Branch:** fix/web-serial-reliability
 
 ## OVERVIEW
 React 组件层,分 `chat/`(聊天主界面)与 `scope/`(示波器)两个独立域。**组件只经 store + bus 读数据,不经 window.api/直接串口。**
