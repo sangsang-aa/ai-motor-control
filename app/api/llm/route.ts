@@ -8,7 +8,7 @@
  */
 import { NextRequest } from 'next/server'
 import { TOOLS, SYSTEM_PROMPT } from '@/lib/llm/tools'
-import type { Message } from '@/lib/types'
+import type { Message, KnowledgePayload } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -18,12 +18,14 @@ export async function POST(req: NextRequest) {
   let history: Message[]
   let cfg: { baseUrl?: string; apiKey?: string; model?: string } = {}
   let systemPrompt: string | undefined
+  let knowledge: KnowledgePayload | undefined
   try {
     const body = await req.json()
     text = String(body.text ?? '')
     history = Array.isArray(body.history) ? body.history : []
     cfg = body.config && typeof body.config === 'object' ? body.config : {}
     systemPrompt = typeof body.systemPrompt === 'string' ? body.systemPrompt : undefined
+    knowledge = body.knowledge && typeof body.knowledge === 'object' ? (body.knowledge as KnowledgePayload) : undefined
   } catch {
     return new Response('invalid body', { status: 400 })
   }
@@ -38,14 +40,32 @@ export async function POST(req: NextRequest) {
     return new Response('LLM 未配置: 请在设置的"AI 供应商"中填入 API Key(或配置服务端 .env.local)', { status: 500 })
   }
 
-  const messages = [
-    { role: 'system', content: systemPrompt?.trim() || SYSTEM_PROMPT },
-    ...history.map((m) => ({ role: m.role, content: m.content })),
-    { role: 'user', content: text }
-  ]
+  const kbText = knowledge?.texts?.length
+    ? '【知识库】\n' + knowledge.texts.map((t) => `### ${t.name}\n${t.text}`).join('\n\n')
+    : ''
+  const kbImages = knowledge?.images ?? []
 
-  try {
-    const upstream = await fetch(baseUrl + '/chat/completions', {
+  const baseMessages: { role: string; content: unknown }[] = [
+    { role: 'system', content: systemPrompt?.trim() || SYSTEM_PROMPT },
+    ...(kbText ? [{ role: 'system', content: kbText }] : []),
+    ...history.map((m) => ({ role: m.role, content: m.content }))
+  ]
+  const textOnlyMessages = [...baseMessages, { role: 'user', content: text }]
+  const withImagesMessages = kbImages.length
+    ? [
+        ...baseMessages,
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text },
+            ...kbImages.map((img) => ({ type: 'image_url', image_url: { url: img.dataUrl } }))
+          ]
+        }
+      ]
+    : textOnlyMessages
+
+  const callUpstream = (msgs: unknown[]) =>
+    fetch(baseUrl + '/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -53,12 +73,21 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         model,
-        messages,
+        messages: msgs,
         tools: TOOLS,
         stream: true,
         stream_options: { include_usage: false }
       })
     })
+
+  try {
+    let upstream = await callUpstream(withImagesMessages)
+    let imagesDropped = false
+    if ((!upstream.ok || !upstream.body) && kbImages.length > 0) {
+      // 上游不支持图片 → 去图重试(仅文本知识库),并告知客户端已忽略图片
+      upstream = await callUpstream(textOnlyMessages)
+      imagesDropped = upstream.ok
+    }
     if (!upstream.ok || !upstream.body) {
       const errText = await upstream.text().catch(() => '')
       return new Response(`upstream ${upstream.status}: ${errText}`, { status: upstream.status })
@@ -70,7 +99,8 @@ export async function POST(req: NextRequest) {
         'Content-Type': 'text/event-stream; charset=utf-8',
         'Cache-Control': 'no-cache, no-transform',
         Connection: 'keep-alive',
-        'X-Accel-Buffering': 'no'
+        'X-Accel-Buffering': 'no',
+        ...(imagesDropped ? { 'X-Knowledge-Images-Dropped': '1' } : {})
       }
     })
   } catch (e) {

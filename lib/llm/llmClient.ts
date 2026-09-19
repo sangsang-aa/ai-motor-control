@@ -3,7 +3,7 @@
  * 请求发往同源 /api/llm(服务端代理保护 API key + 绕 CORS),SSE 解析在浏览器完成。
  */
 
-import type { Message, LlmEvent } from '../types'
+import type { Message, LlmEvent, KnowledgePayload } from '../types'
 import { loadSettings } from '../settings'
 
 let controller: AbortController | null = null
@@ -20,7 +20,8 @@ export async function sendMessage(
   text: string,
   history: Message[],
   onEvent: (e: LlmEvent) => void,
-  systemPrompt?: string
+  systemPrompt?: string,
+  knowledge?: KnowledgePayload
 ): Promise<void> {
   controller = new AbortController()
   const signal = controller.signal
@@ -35,13 +36,16 @@ export async function sendMessage(
       method: 'POST',
       signal,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, history, config, systemPrompt })
+      body: JSON.stringify({ text, history, config, systemPrompt, knowledge })
     })
     if (!response.ok) {
       const msg = await response.text().catch(() => '')
       onEvent({ type: 'error', message: msg || `API ${response.status}` })
       onEvent({ type: 'turn_end' })
       return
+    }
+    if (response.headers.get('X-Knowledge-Images-Dropped') === '1') {
+      onEvent({ type: 'text', content: '当前模型不支持图片，已忽略图片（仅使用文本知识库）' })
     }
     const reader = response.body?.getReader()
     if (!reader) {

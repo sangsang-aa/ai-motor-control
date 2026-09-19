@@ -9,14 +9,14 @@ import { sendMessage } from '@/lib/llm/llmClient'
 
 const enc = new TextEncoder()
 
-function sseResponse(chunks: string[], ok = true): Response {
+function sseResponse(chunks: string[], ok = true, headers: Record<string, string> = {}): Response {
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
       for (const c of chunks) controller.enqueue(enc.encode(c))
       controller.close()
     },
   })
-  return { ok, status: ok ? 200 : 500, body: stream } as unknown as Response
+  return { ok, status: ok ? 200 : 500, headers: new Headers(headers), body: stream } as unknown as Response
 }
 
 beforeEach(() => {
@@ -63,5 +63,18 @@ describe('llmClient — tool call', () => {
     const tc = events.find((e) => e.type === 'tool_call')
     expect(tc.toolName).toBe('set_speed')
     expect(tc.arguments.rpm).toBe(3000)
+  })
+})
+
+describe('llmClient — 图片降级提示', () => {
+  it('X-Knowledge-Images-Dropped=1 时发出"不支持图片"提示', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      sseResponse(['data: [DONE]\n\n'], true, { 'X-Knowledge-Images-Dropped': '1' })
+    )
+    const events: any[] = []
+    await sendMessage('hi', [], (e) => events.push(e))
+    expect(
+      events.some((e) => e.type === 'text' && String(e.content).includes('不支持图片'))
+    ).toBe(true)
   })
 })

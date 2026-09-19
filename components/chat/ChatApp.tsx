@@ -16,6 +16,7 @@ import { useMotorStore } from '@/lib/stores/motorStore'
 import { useCommandLock } from '@/lib/stores/commandLockStore'
 import { backendBus, llmBus } from '@/lib/bus'
 import { sendMessage, abort as abortLlm } from '@/lib/llm/llmClient'
+import { buildKnowledgePayload } from '@/lib/knowledge/context'
 import { useLangStore } from '@/lib/i18n'
 import { loadSettings } from '@/lib/settings'
 
@@ -57,15 +58,24 @@ export const ChatApp: React.FC = () => {
 
   useEffect(() => { useSessionStore.getState().hydrate(); setLang(loadSettings().language) }, [])
 
-  const handleSend = useCallback((text: string) => {
+  const handleSend = useCallback(async (text: string) => {
     if (lock.status !== 'idle') return
     const st = useSessionStore.getState()
     let cid = st.currentId
     if (!cid) { cid = st.createSession(); st.selectSession(cid) }
     st.pushUserMessage(text)
-    const history = st.sessions[cid]?.messages || []
-    const systemPrompt = st.sessions[cid]?.systemPrompt
-    sendMessage(text, history, (e) => llmBus.emit(e), systemPrompt).catch(console.error)
+    const session = st.sessions[cid]
+    const history = session?.messages || []
+    const kbIds = session?.kbIds || []
+    let knowledge
+    if (kbIds.length > 0) {
+      try {
+        knowledge = await buildKnowledgePayload(kbIds)
+      } catch {
+        /* 解析失败 → 降级为不带知识库 */
+      }
+    }
+    sendMessage(text, history, (e) => llmBus.emit(e), session?.systemPrompt, knowledge).catch(console.error)
   }, [lock.status])
 
   useEffect(() => {

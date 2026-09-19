@@ -36,11 +36,13 @@ Next.js (App Router, 纯客户端渲染)
 ├── app/
 │   ├── page.tsx          → ChatApp(聊天主页, /)
 │   ├── scope/page.tsx    → ScopeApp(示波器, /scope)
+│   ├── knowledge/page.tsx→ KnowledgeApp(知识库, /knowledge)
 │   └── api/llm/route.ts  → LLM 代理(唯一服务端代码)
-├── components/chat/      → ChatApp/Topbar/Sidebar/ChatPane/Composer/ConfirmCard/EStop/横幅 + SettingsPanel/SearchDialog
+├── components/chat/      → ChatApp/Topbar/Sidebar/ChatPane/Composer/ConfirmCard/EStop/横幅 + SettingsPanel/SearchDialog/ConversationSettingsPanel
+├── components/knowledge/ → KnowledgeApp(建库/上传)/KnowledgePicker(投送选择)
 ├── components/scope/     → ScopeApp(带"实时数据"区)/ScopeChart/ChannelPanel/HexView/Pause/HexToggle
 └── lib/
-    ├── types.ts          → 跨层类型(BackendEvent/LlmEvent/Session/Message/MotorStatus)
+    ├── types.ts          → 跨层类型(BackendEvent/LlmEvent/Session/Message/MotorStatus/KnowledgePayload)
     ├── bus.ts            → 事件总线:backendBus(串口)/llmBus(LLM)/hexBus(原始字节)
     ├── config.ts         → 常量 DEFAULT_BAUD/RPM_LIMIT/COMMAND_CONFIRM_TIMEOUT
     ├── settings.ts       → localStorage 设置(语言/AI 供应商/baseUrl/apiKey/model)+ useSettingsStore(响应式,Topbar 模型联动)
@@ -49,17 +51,20 @@ Next.js (App Router, 纯客户端渲染)
     ├── serial/motorController.ts → Web Serial 适配 + 串行事务队列 + 超时断开恢复 + 写命令 + 50ms 轮询遥测
     ├── llm/llmClient.ts  → SSE 解析 + abort(浏览器端)
     ├── llm/tools.ts      → 工具定义 TOOLS + 系统提示词 SYSTEM_PROMPT(前后端共用)
+    ├── knowledge/db.ts   → 知识库 IndexedDB(原生,无依赖);context.ts 汇总+预算;extract.ts pdfjs 文本/图片
     ├── report.ts         → 会话报告导出(Blob 下载)
-    └── stores/           → session/motor/commandLock/scope 4 个 zustand store(持久化改 localStorage)
+    └── stores/           → session/motor/commandLock/scope/knowledge 5 个 zustand store(会话/设置持久化 localStorage;知识库存 IndexedDB)
 ```
 
 ## 数据流
 
 - **事件**:`motorController`(串口)→ `backendBus` → `ChatApp`/`ScopeApp` 订阅 → store。替代 Electron 的 `motor:event` 广播。
 - **LLM**:Composer → `llmClient.sendMessage` → `llmBus` → `ChatApp` 统一处理(text 追加 / tool_call 锁链)。**无条件发 turn_end**(即使只有 tool_call,否则 inflight 锁死 — 从 Electron 版继承的坑)。
+- **对话设置(会话级提示词)**:`session.systemPrompt`(Composer「+」→对话设置),发送时经 `sendMessage(...,systemPrompt)` 传给 `/api/llm` 覆盖默认 `SYSTEM_PROMPT`;随会话持久化/删除。
+- **知识库接入 AI(投送一次,每轮自动带)**:`session.kbIds` 存已投送库 id(持久);`ChatApp.handleSend` 每次发送按 kbIds 从 IndexedDB 经 `buildKnowledgePayload` 现取现注入(**不把大文本/图片存进会话消息**)。PDF→文本(合计 ≤12000 字符截断);图片→多模态 `image_url`(≤4 张 ≤2MB)。上游不支持图片 → route **去图重试** + 回 `X-Knowledge-Images-Dropped:1` → 主界面提示"当前模型不支持图片";**无能力记忆**(换多模态模型后自动恢复)。
 - **命令锁链**:`tool_call` → `lock.lock()` → `setPendingToolCall` → ChatPane `ConfirmCard` → 确认 → `motorController.sendCommand` → `executed` 事件 → `lock.unlock()`。30s 超时自动取消。`get_status` 免确认自动执行。`set_motor_state`/`sendCommand` 走 Modbus,`write_pid_<REG>` 写保存寄存器(供 AI 自调整)。
 - **示波器**:50ms telemetry 只更新实时电流/转速数字；5kHz `wave_frame` → `scopeStore.enqueueWaveFrame` 每批整体替换 100 点缓冲 → 唯一 `ScopeChart`(SVG rAF)。原始字节 → `hexBus` → `appendHex`。
-- **持久化**:会话存 localStorage(`mototune.sessions`),示波器通道配置存 localStorage(`scope.*`),设置存 localStorage(`mototune.settings`)。
+- **持久化**:会话存 localStorage(`mototune.sessions`),示波器通道配置存 localStorage(`scope.*`),设置存 localStorage(`mototune.settings`);**知识库文件存 IndexedDB**(`mototune.knowledge`,`kb`+`kbFile` store,不入 localStorage)。
 - **设置响应式**:`useSettingsStore`(zustand)是设置唯一响应式源;`saveSettings`/`loadSettings` 都会写它。**组件订阅 store 而非直接读 localStorage**——否则改模型/供应商不刷新(曾 bug:Topbar 模型名残留 qwen)。
 - **空消息防御**:`sessionStore.applyLlmEvent` 对空 content 的 text 不新建消息;`ChatApp` tool_call 时不再追加空 text——避免"空气泡"。新增消息给 content 若为空串直接跳过。
 
@@ -109,6 +114,7 @@ npm run test:unit / test:e2e / test:all   # 测试(playwright 起 3100,非 3000)
 - **LLM 配置推荐走设置面板**(侧栏「设置」→ AI 供应商/Base URL/API Key/模型,存 localStorage),**无需 .env.local**。`/api/llm` 优先用请求带的 `body.config`(设置),env 仅作可选回退。
 - `.env.local`/`.env.example` 不入库;若用服务端默认配置(如生产),复制 `.env.example` => `.env.local` 填真实值。LLM 配置改动只改这两个文件,不写死代码。
 - `next.config.mjs` 说明:Web 版需 `/api/llm`,不能 `next export`(封装 Electron 时再定 A/B 方案)。
+- **知识库仅客户端**:PDF 文本用 `pdfjs-dist`(legacy build,`lib/knowledge/extract.ts` 动态 import + `new URL(worker, import.meta.url)`);文件存浏览器 **IndexedDB**。二者在服务端(`/api/llm`)不可用——内容由客户端解析后随请求体传给代理。
 - **Next dev 已知坑**:改代码时 `Fast Refresh` 触发整页 reload;若 reload 窗口期访问 `/api/llm`,会命中 `route.js` ENOENT → `POST /api/llm 500` / `Loading chunk ... failed`。症状是"输入请求 → 强制刷新 → 再输入报错"。**修复**:kill 所有 next 进程 → `rm -rf .next` → 重启 dev → 立即连续 curl `/api/llm` 触发编译。**根治**:稳定阶段用 `npm run build && npm start`(生产一次性生成所有 route.js,无按需编译问题)。
 
 ## 组件约束(Altior 近黑,见 docs/DESIGN.md)
@@ -119,6 +125,7 @@ npm run test:unit / test:e2e / test:all   # 测试(playwright 起 3100,非 3000)
 - EStop 为 inline 红色胶囊,集成在 Composer 工具行(发送钮旁),非 fixed。
 - 聊天↔示波器导航用 `next/link`(整页刷新会丢串口连接)。
 - 弹窗 `SettingsPanel`/`SearchDialog` overlay 有 `data-testid`,`SearchDialog` 结果按钮 `data-testid="search-result"`(供 e2e 区分弹窗与侧栏同文本项)。
+- 知识库入口:侧栏工具组 `📚 /knowledge`(展开+折叠态);Composer「工具 ▾」→「知识库」→ `KnowledgePicker`(投送/清空)。关键元素 `data-testid`:`kb-name-input`/`kb-create`/`kb-item`/`file-input`/`file-item`/`kb-pick-item`/`kb-deliver`/`kb-clear`。
 - 无 emoji 作图标(用 SVG / unicode 文本);中文界面。
 
 ## 测试
@@ -130,8 +137,8 @@ npx vitest run unit/modbus.spec.ts                   # 单测单个文件
 npm run test:all                                     # 单测 + E2E 全量
 ```
 
-- **单测(Vitest)**:`unit/`(modbus/llmClient/sessionStore/scopeStore),jsdom 环境。
-- **E2E(Playwright)**:`playwright.config.ts` 用 `webServer` 起 `next dev -p 3100`;`baseURL=http://localhost:3100`。**必须 mock 但勿碰真实 LLM/串口**:LLM 用 `page.route('**/api/llm')`,串口用 `e2e/mockSerial.ts` 的 `fakeSerialInitScript()`(Modbus 从站)。`fakeSerialInitScript({ dropFirstResponse: true })` 用于验证超时断开与重新连接。
+- **单测(Vitest)**:`unit/`(modbus/llmClient/sessionStore/scopeStore/motorStore/commandLockStore/knowledge/knowledgeContext),jsdom 环境。
+- **E2E(Playwright)**:`playwright.config.ts` 用 `webServer` 起 `next dev -p 3100`;`baseURL=http://localhost:3100`。**必须 mock 但勿碰真实 LLM/串口**:LLM 用 `page.route('**/api/llm')`,串口用 `e2e/mockSerial.ts` 的 `fakeSerialInitScript()`(Modbus 从站)。`fakeSerialInitScript({ dropFirstResponse: true })` 用于验证超时断开与重新连接。知识库用真实 IndexedDB(`setInputFiles` 注入内存 PNG)。
 - **通信改动的最低覆盖**:改 Modbus 帧/解析时更新 `unit/modbus.spec.ts`；改事务或重连逻辑时更新 `e2e/serial-recovery.spec.ts`；保留 `serial-scope.spec.ts` 和 `tool-call.spec.ts` 的直连模拟覆盖。浏览器 mock 不能替代 781250 实板验收。
 - **约定**:改布局后检查 e2e 选择器(发送钮 `.composer-send`、侧栏项 `.sb-item`、折叠 title、"新建对话"按钮);侧栏已无拖拽调宽(Altior 固定宽)。
 - Playwright 用 Chromium headless;环境里有 Next dev overlay 可能拦截点击,弹窗/折叠按钮定位用 `dispatchEvent('click')` 或 `data-testid` 更稳。

@@ -12,6 +12,14 @@ export interface Session {
   messages: Message[]
   /** 会话级自定义提示词(对话设置);随会话持久化/删除,仅作用于本会话 */
   systemPrompt?: string
+  /** 已投送的知识库 id 列表;每次发送自动注入其内容(随会话删除,不存大文本) */
+  kbIds?: string[]
+}
+
+/** 发往 LLM 的知识库内容(PDF 文本 + 图片 dataURL) */
+export interface KnowledgePayload {
+  texts: { name: string; text: string }[]
+  images: { name: string; dataUrl: string }[]
 }
 
 export interface Message {

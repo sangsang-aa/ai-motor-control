@@ -113,3 +113,22 @@ describe('sessionStore systemPrompt(会话级提示词)', () => {
     expect(raw[id]).toBeUndefined()
   })
 })
+
+describe('sessionStore kbIds(投送知识库)', () => {
+  it('setKbIds 写入当前会话并持久化', () => {
+    useSessionStore.getState().createSession()
+    const cid = useSessionStore.getState().currentId!
+    useSessionStore.getState().setKbIds(['kb1', 'kb2'])
+    expect(useSessionStore.getState().sessions[cid].kbIds).toEqual(['kb1', 'kb2'])
+    const raw = JSON.parse(localStorage.getItem('mototune.sessions')!)
+    expect(raw[cid].kbIds).toEqual(['kb1', 'kb2'])
+  })
+
+  it('kbIds 随会话删除而消失', () => {
+    const id = useSessionStore.getState().createSession()
+    useSessionStore.getState().setKbIds(['kbX'])
+    useSessionStore.getState().deleteSession(id)
+    const raw = JSON.parse(localStorage.getItem('mototune.sessions') || '{}')
+    expect(raw[id]).toBeUndefined()
+  })
+})

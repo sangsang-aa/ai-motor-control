@@ -7,6 +7,8 @@ import React, { useState, useRef, useEffect } from 'react'
 import { useLangStore, t } from '@/lib/i18n'
 import { EStopButton } from './EStopButton'
 import { ConversationSettingsPanel } from './ConversationSettingsPanel'
+import { KnowledgePicker } from '@/components/knowledge/KnowledgePicker'
+import { useSessionStore } from '@/lib/stores/sessionStore'
 import { sendCommand } from '@/lib/serial/motorController'
 
 interface Props {
@@ -21,6 +23,12 @@ export const Composer: React.FC<Props> = ({ onSend, disabled, locked, onEStop })
   const [text, setText] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
   const [convOpen, setConvOpen] = useState(false)
+  const [toolOpen, setToolOpen] = useState(false)
+  const [kbOpen, setKbOpen] = useState(false)
+  const kbCount = useSessionStore((s) => {
+    const id = s.currentId
+    return (id ? s.sessions[id]?.kbIds?.length : 0) ?? 0
+  })
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const send = () => {
     const tx = text.trim()
@@ -56,7 +64,14 @@ export const Composer: React.FC<Props> = ({ onSend, disabled, locked, onEStop })
               </div>
             )}
           </span>
-          <span className="composer-tool-pill">工具 <span style={{ fontSize: 9 }}>▾</span></span>
+          <span style={{ position: 'relative' }}>
+            <button className="composer-tool-pill" onClick={() => setToolOpen((v) => !v)}>工具{kbCount > 0 ? `（知识库 ${kbCount}）` : ''} <span style={{ fontSize: 9 }}>▾</span></button>
+            {toolOpen && (
+              <div data-testid="composer-tool-menu" style={{ position: 'absolute', bottom: 38, left: 0, zIndex: 20, background: '#1c1c1c', border: '1px solid #2a2a2a', borderRadius: 8, padding: 4, minWidth: 150, boxShadow: '0 4px 16px rgba(0,0,0,0.4)' }}>
+                <button onClick={() => { setToolOpen(false); setKbOpen(true) }} data-testid="tool-knowledge" style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', borderRadius: 6, background: 'none', border: 'none', color: '#ececec', fontSize: 13, cursor: 'pointer' }}>📚 {t(lang, 'knowledge')}</button>
+              </div>
+            )}
+          </span>
           <span className="composer-tool-pill think">✎ 深度思考</span>
           <EStopButton onEStop={onEStop} />
           <button
@@ -72,6 +87,7 @@ export const Composer: React.FC<Props> = ({ onSend, disabled, locked, onEStop })
         </div>
       </div>
       {convOpen && <ConversationSettingsPanel onClose={() => setConvOpen(false)} />}
+      {kbOpen && <KnowledgePicker onClose={() => setKbOpen(false)} />}
     </div>
   )
 }
