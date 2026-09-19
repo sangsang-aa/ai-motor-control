@@ -39,6 +39,7 @@ export const Sidebar: React.FC<Props> = ({ onOpenSettings, onOpenSearch }) => {
         <button onClick={() => setCollapsed(false)} style={{ color: '#9aa0a6', fontSize: 15, cursor: 'pointer', background: 'none', border: 'none' }} title={t(lang, 'expandSidebar')}>☰</button>
         <button onClick={onOpenSearch} style={{ color: '#9aa0a6', fontSize: 13, cursor: 'pointer', background: 'none', border: 'none' }} title={t(lang, 'search')}>🔍</button>
         <Link href="/scope" style={{ color: '#9aa0a6', fontSize: 12, cursor: 'pointer', textDecoration: 'none' }} title={t(lang, 'scope')}>📟</Link>
+        <Link href="/knowledge" style={{ color: '#9aa0a6', fontSize: 12, cursor: 'pointer', textDecoration: 'none' }} title={t(lang, 'knowledge')}>📚</Link>
         <button onClick={handleExport} style={{ color: '#9aa0a6', fontSize: 12, cursor: 'pointer', background: 'none', border: 'none' }} title={t(lang, 'export')}>📄</button>
         <button onClick={onOpenSettings} style={{ color: '#9aa0a6', fontSize: 12, cursor: 'pointer', background: 'none', border: 'none' }} title={t(lang, 'settings')}>⚙</button>
       </div>
@@ -96,6 +97,9 @@ export const Sidebar: React.FC<Props> = ({ onOpenSettings, onOpenSearch }) => {
         <div style={{ paddingBottom: 6 }}>
           <Link href="/scope" className="sb-item" style={{ textDecoration: 'none' }}>
             <span style={{ fontSize: 14 }}>📟</span>{t(lang, 'scope')}
+          </Link>
+          <Link href="/knowledge" className="sb-item" style={{ textDecoration: 'none' }}>
+            <span style={{ fontSize: 14 }}>📚</span>{t(lang, 'knowledge')}
           </Link>
           <button onClick={handleExport} className="sb-item">
             <span style={{ fontSize: 14 }}>📄</span>{t(lang, 'export')}
