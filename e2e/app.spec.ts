@@ -67,3 +67,21 @@ test('示波器页正常渲染', async ({ page }) => {
   // 返回聊天链接
   await expect(page.locator('a', { hasText: '返回聊天' })).toBeVisible()
 })
+
+test('Codex 风格外壳渲染(令牌生效)', async ({ page }) => {
+  await gotoChat(page)
+  await expect(page.locator('[data-ui="codex"]')).toBeVisible()
+  await expect(page.locator('[data-ui="codex"] aside.sidebar')).toBeVisible()
+  await expect(page.locator('[data-ui="codex"] textarea')).toBeVisible()
+  const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor)
+  expect(bg).toBe('rgb(10, 10, 10)')
+})
+
+test('Codex 外壳覆盖示波器与知识库页', async ({ page }) => {
+  await page.goto('/scope')
+  await page.waitForSelector('[data-ui="codex"]')
+  await expect(page.locator('[data-ui="codex"]')).toBeVisible()
+  await page.goto('/knowledge')
+  await page.waitForSelector('[data-ui="codex"]')
+  await expect(page.locator('[data-ui="codex"]')).toBeVisible()
+})
