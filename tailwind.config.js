@@ -4,40 +4,40 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Altior 近黑主题(与 DESIGN.md 对齐)
+        // Codex 近黑中性主题(feature/image 重绘;与 app/globals.css 的 --cx-* 对齐)
         bg: {
-          base: '#0d0d0d',
-          panel: '#121212',
-          raised: '#1c1c1c',
-          hover: '#1f1f1f',
-          active: '#2a2a2a',
-          overlay: 'rgba(13, 13, 13, 0.75)'
+          base: '#0a0a0a',
+          panel: '#0f0f0f',
+          raised: '#141414',
+          hover: '#1e1e1e',
+          active: '#242424',
+          overlay: 'rgba(0, 0, 0, 0.72)'
         },
         line: {
-          DEFAULT: '#2a2a2a',
-          muted: '#1f1f1f',
-          bright: '#333333'
+          DEFAULT: '#1c1c1c',
+          muted: '#161616',
+          bright: '#2a2a2a'
         },
         fg: {
           base: '#ececec',
-          muted: '#9aa0a6',
-          subtle: '#6b7075',
-          inverse: '#0d0d0d'
+          muted: '#9a9a9a',
+          subtle: '#6a6a6a',
+          inverse: '#0a0a0a'
         },
         accent: {
-          DEFAULT: '#2bb8a8',
-          dim: '#26a69a',
-          glow: '#2bb8a8'
+          DEFAULT: '#e8e8e8',
+          dim: '#cfcfcf',
+          glow: '#e8e8e8'
         },
-        danger: { DEFAULT: '#ff3b30', dim: '#cc2f26', glow: '#ff3b30' },
-        warning: { DEFAULT: '#ff9500', dim: '#cc7700', bg: 'rgba(255,149,0,0.08)', border: 'rgba(255,149,0,0.3)' },
-        success: { DEFAULT: '#2bb8a8', dim: '#26a69a', bg: 'rgba(43,184,168,0.1)' },
-        chart: { speed: '#2bb8a8', current: '#2f6bff', grid: 'rgba(255,255,255,0.06)', text: '#6b7075' },
-        surface: '#121212',
-        'surface-lighter': '#1f1f1f',
-        'surface-light': '#1c1c1c',
+        danger: { DEFAULT: '#ff5f57', dim: '#cc4b44', glow: '#ff5f57' },
+        warning: { DEFAULT: '#febc2e', dim: '#d99a1e', bg: 'rgba(254,188,46,0.08)', border: 'rgba(254,188,46,0.3)' },
+        success: { DEFAULT: '#3fb950', dim: '#2f9e3f', bg: 'rgba(63,185,80,0.1)' },
+        chart: { speed: '#4ea1ff', current: '#ffb340', grid: 'rgba(255,255,255,0.06)', text: '#6a6a6a' },
+        surface: '#141414',
+        'surface-lighter': '#1e1e1e',
+        'surface-light': '#1a1a1a',
         'text-primary': '#ececec',
-        'text-secondary': '#9aa0a6',
+        'text-secondary': '#9a9a9a',
         'scope-ch1': '#ff6b6b', 'scope-ch2': '#4ecdc4', 'scope-ch3': '#45b7d1',
         'scope-ch4': '#f9ca24', 'scope-ch5': '#6c5ce7', 'scope-ch6': '#a29bfe',
         'scope-ch7': '#00b894', 'scope-ch8': '#e17055',
