@@ -39,37 +39,37 @@ export const KnowledgePicker: React.FC<{ onClose: () => void }> = ({ onClose }) 
   }
 
   const overlay: React.CSSProperties = {
-    position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(13,13,13,0.8)',
+    position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.72)',
     display: 'flex', alignItems: 'center', justifyContent: 'center'
   }
   const box: React.CSSProperties = {
-    background: '#121212', border: '1px solid #2a2a2a', borderRadius: 12,
-    padding: '20px 24px', width: 460, maxWidth: '90vw', color: '#ececec'
+    background: 'var(--cx-surface)', border: '1px solid var(--cx-border-2)', borderRadius: 14,
+    padding: '20px 24px', width: 460, maxWidth: '90vw', color: 'var(--cx-text)'
   }
 
   return (
     <div style={overlay} data-testid="kb-picker-overlay">
       <div style={box}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <span style={{ fontSize: 16, fontWeight: 700 }}>📚 {t(lang, 'knowledge')}</span>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#9aa0a6', cursor: 'pointer', fontSize: 18 }}>✕</button>
+          <span style={{ fontSize: 16, fontWeight: 700 }}>{t(lang, 'knowledge')}</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--cx-muted)', cursor: 'pointer', fontSize: 18 }}>✕</button>
         </div>
-        <div style={{ fontSize: 12, color: '#9aa0a6', marginBottom: 10 }}>{t(lang, 'kbPickerHint')}</div>
+        <div style={{ fontSize: 12, color: 'var(--cx-muted)', marginBottom: 10 }}>{t(lang, 'kbPickerHint')}</div>
 
-        {kbs.length === 0 && <div style={{ fontSize: 12, color: '#6b7075', padding: '8px 0' }}>{t(lang, 'kbNoKb')}</div>}
+        {kbs.length === 0 && <div style={{ fontSize: 12, color: 'var(--cx-subtle)', padding: '8px 0' }}>{t(lang, 'kbNoKb')}</div>}
 
         <div style={{ maxHeight: 260, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
           {kbs.map((kb) => (
             <label
               key={kb.id}
               data-testid="kb-pick-item"
-              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 6, border: '1px solid #2a2a2a', cursor: 'pointer' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--cx-border)', cursor: 'pointer' }}
             >
               <input
                 type="checkbox"
                 checked={selected.includes(kb.id)}
                 onChange={() => toggle(kb.id)}
-                style={{ accentColor: '#2bb8a8' }}
+                style={{ accentColor: 'var(--cx-text)' }}
               />
               <span style={{ fontSize: 13 }}>{kb.name}</span>
             </label>
@@ -77,8 +77,8 @@ export const KnowledgePicker: React.FC<{ onClose: () => void }> = ({ onClose }) 
         </div>
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 14 }}>
-          <button onClick={clear} className="btn-ghost text-xs" data-testid="kb-clear">{t(lang, 'kbClear')}</button>
-          <button onClick={deliver} className="btn-primary text-xs" data-testid="kb-deliver">{t(lang, 'kbDeliver')}</button>
+          <button onClick={clear} className="cx-btn cx-btn-ghost" data-testid="kb-clear">{t(lang, 'kbClear')}</button>
+          <button onClick={deliver} className="cx-btn cx-btn-primary" data-testid="kb-deliver">{t(lang, 'kbDeliver')}</button>
         </div>
       </div>
     </div>
