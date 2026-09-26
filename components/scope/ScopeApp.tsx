@@ -54,17 +54,17 @@ export const ScopeApp: React.FC = () => {
 
   const dot = (on: boolean) => ({
     display: 'inline-block', width: 8, height: 8, borderRadius: '50%', marginRight: 5,
-    background: on ? '#2bb8a8' : '#4a4a4a', boxShadow: `0 0 6px ${on ? 'rgba(43,184,168,0.6)' : 'none'}`
+    background: on ? 'var(--cx-success)' : 'var(--cx-subtle)', boxShadow: 'none'
   })
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#0d0d0d', color: '#ececec', fontFamily: "'Noto Sans SC',system-ui,sans-serif" }}>
-      <header style={{ display: 'flex', alignItems: 'center', padding: '0 16px', height: 46, flexShrink: 0, borderBottom: '1px solid #2a2a2a', gap: 12 }}>
-        <Link href="/" style={{ fontSize: 12, color: '#2bb8a8', textDecoration: 'none', border: '1px solid rgba(43,184,168,0.3)', padding: '3px 10px', borderRadius: 4 }}>← 返回聊天</Link>
-        <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '0.05em', color: '#ececec' }}>{t(lang, 'scope')}</span>
+    <div data-ui="codex" style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--cx-bg)', color: 'var(--cx-text)', fontFamily: "'Noto Sans SC',system-ui,sans-serif" }}>
+      <header style={{ display: 'flex', alignItems: 'center', padding: '0 16px', height: 44, flexShrink: 0, borderBottom: '1px solid var(--cx-border)', gap: 12 }}>
+        <Link href="/" style={{ fontSize: 12, color: 'var(--cx-text)', textDecoration: 'none', border: '1px solid var(--cx-border-2)', padding: '3px 10px', borderRadius: 6 }}>← 返回聊天</Link>
+        <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '0.05em', color: 'var(--cx-text)' }}>{t(lang, 'scope')}</span>
         <span style={dot(connected)} />
-        <span style={{ fontSize: 12, color: '#9aa0a6' }}>{connected ? t(lang, 'connected') : t(lang, 'disconnected')}</span>
-        {connected && <span style={{ fontSize: 11, color: '#6b7075' }}>{status.port} @ {status.baudRate}</span>}
+        <span style={{ fontSize: 12, color: 'var(--cx-muted)' }}>{connected ? t(lang, 'connected') : t(lang, 'disconnected')}</span>
+        {connected && <span style={{ fontSize: 11, color: 'var(--cx-subtle)' }}>{status.port} @ {status.baudRate}</span>}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
           <PauseToggle />
           <HexToggle />
@@ -72,19 +72,19 @@ export const ScopeApp: React.FC = () => {
       </header>
       <div className="scope-workspace" style={{ flex: 1, display: 'flex', minHeight: 0 }}>
         <div className="scope-plot-area" style={{ flex: 1, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 16, padding: '8px 14px', borderBottom: '1px solid #2a2a2a', flexShrink: 0, background: '#111111' }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#ececec', marginRight: 4 }}>{t(lang, 'realtime')}</span>
-            <span data-testid="realtime-current" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#9aa0a6' }}>
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 16, padding: '8px 14px', borderBottom: '1px solid var(--cx-border)', flexShrink: 0, background: 'var(--cx-bg-elev)' }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--cx-text)', marginRight: 4 }}>{t(lang, 'realtime')}</span>
+            <span data-testid="realtime-current" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--cx-muted)' }}>
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: channels[0]?.colorOverride || autoColor(0) }} />
               <span>Ia</span>
-              <b style={{ color: '#ececec', fontFamily: "'JetBrains Mono',Consolas,monospace" }}>{latestCurrent.toFixed(3)}</b>
-              <span style={{ fontSize: 10, color: '#6b7075' }}>A</span>
+              <b style={{ color: 'var(--cx-text)', fontFamily: "'JetBrains Mono',Consolas,monospace" }}>{latestCurrent.toFixed(3)}</b>
+              <span style={{ fontSize: 10, color: 'var(--cx-subtle)' }}>A</span>
             </span>
-            <span data-testid="realtime-speed" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#9aa0a6' }}>
+            <span data-testid="realtime-speed" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--cx-muted)' }}>
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: channels[1]?.colorOverride || autoColor(1) }} />
               <span>Speed</span>
-              <b style={{ color: '#ececec', fontFamily: "'JetBrains Mono',Consolas,monospace" }}>{status.rpm.toFixed(0)}</b>
-              <span style={{ fontSize: 10, color: '#6b7075' }}>RPM</span>
+              <b style={{ color: 'var(--cx-text)', fontFamily: "'JetBrains Mono',Consolas,monospace" }}>{status.rpm.toFixed(0)}</b>
+              <span style={{ fontSize: 10, color: 'var(--cx-subtle)' }}>RPM</span>
             </span>
           </div>
           <div style={{ flex: 1, minHeight: 0 }}>
@@ -95,12 +95,12 @@ export const ScopeApp: React.FC = () => {
           style={{ width: 4, cursor: 'col-resize', flexShrink: 0, transition: 'background 0.15s' }}
           ref={(el) => {
             if (el) {
-              el.style.background = '#2a2a2a'
-              el.onmouseenter = () => { el.style.background = '#2bb8a8' }
-              el.onmouseleave = () => { el.style.background = '#2a2a2a' }
+              el.style.background = 'var(--cx-border)'
+              el.onmouseenter = () => { el.style.background = 'var(--cx-text)' }
+              el.onmouseleave = () => { el.style.background = 'var(--cx-border)' }
             }
           }} />
-        <div className="scope-channel-panel" style={{ width: panelW, flexShrink: 0, borderLeft: '1px solid #2a2a2a', background: '#121212', overflowY: 'auto' }}>
+        <div className="scope-channel-panel" style={{ width: panelW, flexShrink: 0, borderLeft: '1px solid var(--cx-border)', background: 'var(--cx-bg-elev)', overflowY: 'auto' }}>
           <ChannelPanel />
         </div>
       </div>
