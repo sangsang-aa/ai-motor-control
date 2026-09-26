@@ -23,21 +23,21 @@ export const SearchDialog: React.FC<{ onClose: () => void }> = ({ onClose }) => 
   }
 
   const overlay: React.CSSProperties = {
-    position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(13,13,13,0.8)',
+    position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.72)',
     display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 80
   }
   const box: React.CSSProperties = {
-    background: '#121212', border: '1px solid #2a2a2a', borderRadius: 12,
+    background: 'var(--cx-surface)', border: '1px solid var(--cx-border-2)', borderRadius: 14,
     width: 460, maxWidth: '90vw', maxHeight: '70vh', overflow: 'hidden',
-    display: 'flex', flexDirection: 'column', color: '#ececec'
+    display: 'flex', flexDirection: 'column', color: 'var(--cx-text)'
   }
 
   return (
     <div style={overlay} data-testid="search-overlay">
       <div style={box}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderBottom: '1px solid #2a2a2a' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderBottom: '1px solid var(--cx-border)' }}>
           <span style={{ fontSize: 14, fontWeight: 600 }}>{t(lang, 'search')}</span>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#9aa0a6', cursor: 'pointer', fontSize: 16 }}>✕</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--cx-muted)', cursor: 'pointer', fontSize: 16 }}>✕</button>
         </div>
         <input
           autoFocus
@@ -49,7 +49,7 @@ export const SearchDialog: React.FC<{ onClose: () => void }> = ({ onClose }) => 
         />
         <div style={{ overflowY: 'auto', padding: '0 10px 10px', display: 'flex', flexDirection: 'column', gap: 4 }}>
           {query.trim() && results.length === 0 && (
-            <div style={{ color: '#9aa0a6', fontSize: 12, textAlign: 'center', padding: 24 }}>{t(lang, 'noResult')}</div>
+            <div style={{ color: 'var(--cx-muted)', fontSize: 12, textAlign: 'center', padding: 24 }}>{t(lang, 'noResult')}</div>
           )}
           {results.map((s) => (
             <button
@@ -57,12 +57,12 @@ export const SearchDialog: React.FC<{ onClose: () => void }> = ({ onClose }) => 
               onClick={() => jump(s.id)}
               data-testid="search-result"
               style={{
-                textAlign: 'left', padding: '10px 12px', borderRadius: 6, cursor: 'pointer',
-                background: 'rgba(43,184,168,0.06)', border: '1px solid #2a2a2a', color: '#ececec'
+                textAlign: 'left', padding: '10px 12px', borderRadius: 8, cursor: 'pointer',
+                background: 'var(--cx-surface-2)', border: '1px solid var(--cx-border)', color: 'var(--cx-text)'
               }}
             >
               <div style={{ fontSize: 13 }}>{s.title}</div>
-              <div style={{ fontSize: 10, color: '#6b7075', marginTop: 2 }}>
+              <div style={{ fontSize: 10, color: 'var(--cx-subtle)', marginTop: 2 }}>
                 {new Date(s.updatedAt).toLocaleString('zh-CN')} · {s.messages.length} 条
               </div>
             </button>

@@ -59,16 +59,16 @@ export const Composer: React.FC<Props> = ({ onSend, disabled, locked, onEStop })
           <span style={{ position: 'relative' }}>
             <button className="composer-tool-pill" style={{ width: 30, height: 30, padding: 0, justifyContent: 'center', borderRadius: 8 }} title="附加" onClick={() => setMenuOpen((v) => !v)}>＋</button>
             {menuOpen && (
-              <div data-testid="composer-plus-menu" style={{ position: 'absolute', bottom: 38, left: 0, zIndex: 20, background: '#1c1c1c', border: '1px solid #2a2a2a', borderRadius: 8, padding: 4, minWidth: 140, boxShadow: '0 4px 16px rgba(0,0,0,0.4)' }}>
-                <button onClick={() => { setMenuOpen(false); setConvOpen(true) }} data-testid="menu-conv-settings" style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', borderRadius: 6, background: 'none', border: 'none', color: '#ececec', fontSize: 13, cursor: 'pointer' }}>对话设置</button>
+              <div data-testid="composer-plus-menu" className="cx-menu" style={{ position: 'absolute', bottom: 38, left: 0, zIndex: 20, minWidth: 140 }}>
+                <button onClick={() => { setMenuOpen(false); setConvOpen(true) }} data-testid="menu-conv-settings" className="cx-menu-item">对话设置</button>
               </div>
             )}
           </span>
           <span style={{ position: 'relative' }}>
             <button className="composer-tool-pill" onClick={() => setToolOpen((v) => !v)}>工具{kbCount > 0 ? `（知识库 ${kbCount}）` : ''} <span style={{ fontSize: 9 }}>▾</span></button>
             {toolOpen && (
-              <div data-testid="composer-tool-menu" style={{ position: 'absolute', bottom: 38, left: 0, zIndex: 20, background: '#1c1c1c', border: '1px solid #2a2a2a', borderRadius: 8, padding: 4, minWidth: 150, boxShadow: '0 4px 16px rgba(0,0,0,0.4)' }}>
-                <button onClick={() => { setToolOpen(false); setKbOpen(true) }} data-testid="tool-knowledge" style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', borderRadius: 6, background: 'none', border: 'none', color: '#ececec', fontSize: 13, cursor: 'pointer' }}>📚 {t(lang, 'knowledge')}</button>
+              <div data-testid="composer-tool-menu" className="cx-menu" style={{ position: 'absolute', bottom: 38, left: 0, zIndex: 20, minWidth: 150 }}>
+                <button onClick={() => { setToolOpen(false); setKbOpen(true) }} data-testid="tool-knowledge" className="cx-menu-item">{t(lang, 'knowledge')}</button>
               </div>
             )}
           </span>
@@ -77,7 +77,7 @@ export const Composer: React.FC<Props> = ({ onSend, disabled, locked, onEStop })
           <button
             onClick={() => sendCommand('clear_emergency_stop', {}).catch((e) => alert(`复位失败: ${e}`))}
             title="清除急停"
-            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, background: 'rgba(43,184,168,0.12)', color: '#2bb8a8', border: '1px solid rgba(43,184,168,0.3)', cursor: 'pointer' }}
+            className="cx-btn cx-btn-ghost"
           >
             <span style={{ fontSize: 13 }}>↺</span>复位
           </button>

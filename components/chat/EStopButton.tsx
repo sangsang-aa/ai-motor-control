@@ -25,12 +25,7 @@ export const EStopButton: React.FC<{ onEStop?: () => void }> = ({ onEStop }) => 
       onClick={handle}
       disabled={busy}
       title="急停"
-      style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-        padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700,
-        background: 'rgba(255,59,48,0.15)', color: '#ff3b30', border: '1px solid rgba(255,59,48,0.3)',
-        cursor: 'pointer', transition: 'all 0.15s'
-      }}
+      className="cx-btn cx-btn-danger"
     >
       <span style={{ fontSize: 13 }}>⏹</span>急停
     </button>

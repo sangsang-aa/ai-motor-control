@@ -69,7 +69,7 @@ export const ChatPane: React.FC = () => {
       <div ref={sr} className="chat-scroll" style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         {msgs.length === 0 && !inflight && (
           <div className="welcome" style={{ flex: 1, justifyContent: 'center' }}>
-            <div className="t" style={{ fontSize: 24, fontWeight: 600 }}>{t(lang, 'welcome')}</div>
+            <div className="t">{t(lang, 'welcome')}</div>
           </div>
         )}
         {msgs.map((m) => <div key={m.id} className={`msg-row ${rc(m.role)}`}><div className={`msg-bbl ${rc(m.role)}`}>{m.content}{m.streaming && <span className="stream-dot" />}</div></div>)}

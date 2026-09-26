@@ -89,7 +89,7 @@ export const ChatApp: React.FC = () => {
   }, [inflight, lock])
 
   return (
-    <div className="h-full flex" style={{ background: '#0d0d0d' }}>
+    <div className="h-full flex" data-ui="codex" style={{ background: 'var(--cx-bg)' }}>
       <Sidebar onOpenSettings={() => setShowSettings(true)} onOpenSearch={() => setShowSearch(true)} />
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar />
