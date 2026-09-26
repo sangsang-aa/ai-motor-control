@@ -1,65 +1,83 @@
-# DESIGN.md — MOTOTUNE 界面参考(Altior 风格)
+# DESIGN.md — MOTOTUNE 界面参考(Codex 近黑极简)
 
-**Reference:** `界面样式.png` — 现代深色 AI 助手界面(Altior/DeepSeek 风格)。
-**Goal:** 将 MOTOTUNE(电机控制 + AI 对话)重构为该排版,功能不变,布局/色彩/组件形态仿照参考图。
+**Reference:** Codex 桌面/网页 GUI(近黑、极简、发丝边框);早期布局参考图见 `界面样式.png`。
+**Goal:** MOTOTUNE(电机控制 + AI 对话)三页(聊天 `/`、示波器 `/scope`、知识库 `/knowledge`)统一为 Codex 视觉;功能与逻辑零改动,仅布局与样式。
 
 ## 1. Palette(tokens)
+
+两层 token 指向同一套值:
+
+- **CSS 变量** `--cx-*`(定义在 `app/globals.css` 的 `:root`):聊天组件的原始 CSS 类与各页内联样式使用。
+- **Tailwind 语义 token**(`tailwind.config.js` 的 `colors`):示波器/知识库页面使用的类(`bg-surface` / `text-text-primary` 等)。
+
 | Token | Value | 用途 |
 |---|---|---|
-| bg-root | `#0d0d0d` | 主区背景(近黑) |
-| bg-sidebar | `#121212` | 侧栏背景 |
-| surface-raised | `#1c1c1c` | 输入框容器 / 卡片 |
-| hover | `#1f1f1f` | 侧栏项 hover |
-| border | `#2a2a2a` | 细边框(输入框容器) |
-| text-primary | `#ececec` | 主文字 |
-| text-secondary | `#9aa0a6` | 次级(分组标题/占位) |
-| text-tertiary | `#6b7075` | 弱化 |
-| brand | `#2bb8a8` | 品牌(MOTOTUNE 强调) |
-| accent-blue | `#2f6bff` | 深度思考 pill / 发送按钮 |
-| user-avatar | `#f59e0b` | 头像橙点(参考图) |
+| `--cx-bg` / `bg.base` | `#0a0a0a` | 全局底色 |
+| `--cx-bg-elev` / `bg.panel` | `#0f0f0f` | 侧栏 / 面板底色 |
+| `--cx-surface` / `surface` | `#141414` | 输入框容器 / 卡片 |
+| `--cx-surface-2` / `surface-light` | `#1a1a1a` | 次级面(菜单 / 消息气泡 / 文件行) |
+| `--cx-hover` / `surface-lighter` | `#1e1e1e` | hover |
+| `--cx-border` / `line.DEFAULT` | `rgba(255,255,255,0.08)` | 发丝边框 |
+| `--cx-border-2` / `line.bright` | `rgba(255,255,255,0.14)` | 较强边框 / 局部强调 |
+| `--cx-text` / `text-primary` | `#ececec` | 主文字 |
+| `--cx-muted` / `text-secondary` | `#9a9a9a` | 次级(分组标题 / 占位) |
+| `--cx-subtle` | `#6a6a6a` | 弱化 |
+| `--cx-accent` / `accent` | `#e8e8e8` | 主操作(近白) |
+| `--cx-accent-fg` | `#0a0a0a` | 主操作文字 |
+| `--cx-success` / `success` | `#3fb950` | 连接指示 |
+| `--cx-warning` / `warning` | `#febc2e` | 告警(ConfirmCard / 上传提示) |
+| `--cx-danger` / `danger` | `#ff5f57` | 危险(急停 / 断开) |
 
-> 深色近黑底 + 青/蓝点缀,取代原 `#0a1628`/`#00a8ff` 蓝黑系。
+> 通道辨识色 `scope-ch1..8` 在 `tailwind.config.js` 保留独立色相(图表需可区分)。
 
 ## 2. Typography
-- 正文字体沿用 `Noto Sans SC`;数值用 `JetBrains Mono`。
-- 分组标题:12px,`text-tertiary`,normal weight。
-- 侧栏项:14px,`text-secondary`;hover/active `text-primary`。
-- 中央问候语:24px,`text-primary`。
+
+- 正文字体 `Noto Sans SC`;数值 / 通道 / HEX 用 `JetBrains Mono`。
+- 分组标题 11–12px `--cx-subtle`;侧栏项 13.5–14px;消息 14px / 1.65;问候语 26px `--cx-text`。
 
 ## 3. Layout Geometry
+
 ```
-┌─────────────────────────────────────────────────────┐
-│ sidebar(240px) │  main(flex-1)                        │
-│ 品牌行          │  顶部:模型下拉(左) + 串口状态(右)     │
-│ 开启新对话按钮    │  ───────────────────────            │
-│ 分组: 会话        │   中央: 问候语(垂直居中)             │
-│ 分组: 工具        │   消息列表(聊天后)                   │
-│ ┄┄┄┄┄          │  ───────────────────────            │
-│ 用户行(底部)     │   大输入框容器(圆角,底部工具行+发送)   │
-└─────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────┐
+│ sidebar(240px) │  main(flex-1)                  │
+│ 品牌行(白徽章)  │  顶部条 44px:模型下拉(左)       │
+│ 新建对话        │           串口状态/波特率(右)    │
+│ 会话分组        │  ──────────────────            │
+│ 工具分组        │  消息区 / 中央问候语             │
+│ 用户行(底)      │  ──────────────────            │
+│                │  底部大圆角输入框 + 工具行/发送   │
+└───────────────────────────────────────────────┘
 ```
+
+- 聊天两栏(侧栏固定 240px);示波器 = 状态头 + 波形/HEX 区 + 右侧通道面板(可拖拽 160–500px);知识库 = 左侧库列表 + 右侧文件区。
 
 ## 4. Component Anatomy
-- **侧栏项**:icon + 文本,行高 38px,hover 圆角(6px)背景;当前项左侧色条。
-- **"开启新对话"按钮**:全宽圆角胶囊,`surface-raised` 背景,左箭头图标。
-- **顶部条**:左=模型/语言下拉;右=连接状态 + RPM/电流(实时)。
-- **输入框容器**:大圆角(16px)细边框,内部:顶部占位文字 + 多行 textarea + 底部工具行
-  (`+` 圆钮、`工具 ▾` pill、`深度思考` 蓝pill)+ 右侧圆形发送按钮(蓝底上箭头)。
-- **发送按钮**:圆形(36px),`accent-blue` 底,白箭头。
+
+- **侧栏项**:icon + 文本,圆角 8px,hover `--cx-hover`,当前项 `rgba(255,255,255,0.06)` 背景;图标为内联 SVG。
+- **按钮**:聊天 / 知识库复用 `.cx-btn`(`-primary` 近白底深字 / `-ghost` 描边 / `-danger` 红描边)。
+- **输入框**:`.input-base` 与各页内联输入统一 `--cx-surface` + 发丝边框,聚焦只加深边框(无发光)。
+- **消息**:用户 = 圆角 12px 气泡(`--cx-surface-2`);助手 = 无气泡纯文本;系统 = 弱化小字。
+- **ConfirmCard**:`--cx-surface` 底 + 左侧 `--cx-warning` 边条。
+- **EStop**:inline 红色胶囊,集成 Composer 工具行(非 fixed)。
+- **图标**:无 emoji;统一内联 SVG / unicode 文本。
 
 ## 5. MOTOTUNE 功能映射
-| 原功能 | 新位置 |
+
+| 功能 | 位置 |
 |---|---|
-| Topbar(连接/波特率/转速电流) | 主区顶部条(串口状态 + RPM/电流;波特率在连接时输入) |
-| Sidebar 标题/折叠 | 侧栏品牌行 + 开启新对话 |
-| 会话列表 | 侧栏"会话"分组 |
-| 工具(示波器/导出/设置/搜索) | 侧栏"工具"分组 |
+| Topbar(连接 / 波特率 / 模型) | 主区顶部条 44px |
+| Sidebar 品牌 / 折叠 / 搜索 | 侧栏品牌行 |
+| 会话列表 / 工具组 | 侧栏分组 |
 | 欢迎语 | 主区中央问候语(未对话时) |
 | Composer | 主区底部大圆角输入框 |
-| 急停 | 保留 fixed 右下(语义不变) |
-| 锁链/ConfirmCard | 消息区内,不变 |
+| 急停 / 复位 | Composer 工具行 |
+| 锁链 / ConfirmCard | 消息区内 |
+| 示波器 | `/scope`:头 + 波形/HEX + 通道面板 |
+| 知识库 | `/knowledge`:建库 / 上传 / 删除 |
 
 ## 6. Constraints
-- 保持 `next/link` 跨页导航(丢串口连接)。弹窗 `data-testid` 不变。
-- 无 emoji 作图标(用 SVG/Lucide 风格)。
-- 状态/逻辑(store/bus/modbus)零改动 —— 仅布局/样式。
+
+- 保持 `next/link` 跨页导航(丢串口连接);弹窗 / 列表 `data-testid` 与 e2e 选择器不变。
+- 无 emoji 作图标(用内联 SVG / unicode 文本);中文界面。
+- 状态 / 逻辑(`lib/**`:store / bus / modbus / llm)零改动 —— 仅布局与样式。
+- 样式用 Tailwind v3 + 原始 CSS 类(见 `app/globals.css`);**不 @apply 自定义颜色**。新增颜色优先走 `--cx-*`(globals.css)或 Tailwind `colors`,别硬编码旧深蓝(`#0a1628` / `#00a8ff`)或旧青(`#2bb8a8`)。

@@ -117,15 +117,15 @@ npm run test:unit / test:e2e / test:all   # 测试(playwright 起 3100,非 3000)
 - **知识库仅客户端**:PDF 文本用 `pdfjs-dist`(legacy build,`lib/knowledge/extract.ts` 动态 import + `new URL(worker, import.meta.url)`);文件存浏览器 **IndexedDB**。二者在服务端(`/api/llm`)不可用——内容由客户端解析后随请求体传给代理。
 - **Next dev 已知坑**:改代码时 `Fast Refresh` 触发整页 reload;若 reload 窗口期访问 `/api/llm`,会命中 `route.js` ENOENT → `POST /api/llm 500` / `Loading chunk ... failed`。症状是"输入请求 → 强制刷新 → 再输入报错"。**修复**:kill 所有 next 进程 → `rm -rf .next` → 重启 dev → 立即连续 curl `/api/llm` 触发编译。**根治**:稳定阶段用 `npm run build && npm start`(生产一次性生成所有 route.js,无按需编译问题)。
 
-## 组件约束(Altior 近黑,见 docs/DESIGN.md)
+## 组件约束(Codex 近黑极简,见 docs/DESIGN.md)
 
-- 近黑主题:底色 `#0d0d0d`,侧栏 `#121212`,强调青 `#2bb8a8`(主)/ `#2f6bff`(蓝),告警 `#ff9500`,危险 `#ff3b30`。tokens 定义在 `tailwind.config.js`,别硬编码旧深蓝(`#0a1628`/`#00a8ff`)。
+- 近黑中性主题:底色 `--cx-bg #0a0a0a`、面板 `--cx-bg-elev #0f0f0f`、主操作近白 `--cx-accent #e8e8e8`、告警 `#febc2e`、危险 `#ff5f57`。两层 token 同一套值:CSS 变量 `--cx-*`(`app/globals.css`)+ Tailwind 语义 token(`tailwind.config.js`)。别硬编码旧深蓝(`#0a1628`/`#00a8ff`)或旧青(`#2bb8a8`)。
 - 样式:Tailwind v3 + 原始 CSS 类(见 `app/globals.css`);**不 @apply 自定义颜色**(历史教训)。新增颜色/通道样式走 `tailwind.config.js` 的 colors(已含 `text-primary`/`text-secondary`/`surface`/`surface-lighter` 等)。
 - 品牌:侧栏顶部白色徽章 FluxPilot 商标(`public/trademark_image.png` 图标 + `public/trademark.png` 文字)。图标+文字组合,白底图放白色徽章上,勿用 mix-blend(深底会变暗)。
 - EStop 为 inline 红色胶囊,集成在 Composer 工具行(发送钮旁),非 fixed。
 - 聊天↔示波器导航用 `next/link`(整页刷新会丢串口连接)。
 - 弹窗 `SettingsPanel`/`SearchDialog` overlay 有 `data-testid`,`SearchDialog` 结果按钮 `data-testid="search-result"`(供 e2e 区分弹窗与侧栏同文本项)。
-- 知识库入口:侧栏工具组 `📚 /knowledge`(展开+折叠态);Composer「工具 ▾」→「知识库」→ `KnowledgePicker`(投送/清空)。关键元素 `data-testid`:`kb-name-input`/`kb-create`/`kb-item`/`file-input`/`file-item`/`kb-pick-item`/`kb-deliver`/`kb-clear`。
+- 知识库入口:侧栏工具组 `/knowledge`(展开+折叠态,内联 SVG 图标);Composer「工具 ▾」→「知识库」→ `KnowledgePicker`(投送/清空)。关键元素 `data-testid`:`kb-name-input`/`kb-create`/`kb-item`/`file-input`/`file-item`/`kb-pick-item`/`kb-deliver`/`kb-clear`。
 - 无 emoji 作图标(用 SVG / unicode 文本);中文界面。
 
 ## 测试
@@ -140,7 +140,7 @@ npm run test:all                                     # 单测 + E2E 全量
 - **单测(Vitest)**:`unit/`(modbus/llmClient/sessionStore/scopeStore/motorStore/commandLockStore/knowledge/knowledgeContext),jsdom 环境。
 - **E2E(Playwright)**:`playwright.config.ts` 用 `webServer` 起 `next dev -p 3100`;`baseURL=http://localhost:3100`。**必须 mock 但勿碰真实 LLM/串口**:LLM 用 `page.route('**/api/llm')`,串口用 `e2e/mockSerial.ts` 的 `fakeSerialInitScript()`(Modbus 从站)。`fakeSerialInitScript({ dropFirstResponse: true })` 用于验证超时断开与重新连接。知识库用真实 IndexedDB(`setInputFiles` 注入内存 PNG)。
 - **通信改动的最低覆盖**:改 Modbus 帧/解析时更新 `unit/modbus.spec.ts`；改事务或重连逻辑时更新 `e2e/serial-recovery.spec.ts`；保留 `serial-scope.spec.ts` 和 `tool-call.spec.ts` 的直连模拟覆盖。浏览器 mock 不能替代 781250 实板验收。
-- **约定**:改布局后检查 e2e 选择器(发送钮 `.composer-send`、侧栏项 `.sb-item`、折叠 title、"新建对话"按钮);侧栏已无拖拽调宽(Altior 固定宽)。
+- **约定**:改布局后检查 e2e 选择器(发送钮 `.composer-send`、侧栏项 `.sb-item`、折叠 title、"新建对话"按钮);侧栏已无拖拽调宽(Codex 固定宽 240px)。
 - Playwright 用 Chromium headless;环境里有 Next dev overlay 可能拦截点击,弹窗/折叠按钮定位用 `dispatchEvent('click')` 或 `data-testid` 更稳。
 
 ## Git
