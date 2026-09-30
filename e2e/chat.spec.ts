@@ -64,3 +64,25 @@ test('对话记录到 localStorage(刷新后保留)', async ({ page }) => {
   const sidebar = await page.locator('aside nav .sb-item').first().textContent()
   expect(sidebar).toContain('这条消息要被我记录下来'.slice(0, 10))
 })
+
+test('会话重命名后侧栏显示新名称并持久化', async ({ page }) => {
+  await page.route('**/api/llm', (route) => {
+    route.fulfill({ status: 200, contentType: 'text/event-stream', body: SSE_TEXT })
+  })
+  await gotoChat(page)
+  await page.locator('textarea').fill('这条消息用来做原始名称')
+  await page.locator('.composer-send').click()
+  await expect(page.locator('.msg-bbl.asst')).toContainText('好的，我已收到你的请求。')
+
+  const item = page.locator('aside nav .sb-item').first()
+  await item.hover()
+  await page.locator('aside nav button[title="重命名"]').first().click()
+  const input = page.locator('aside nav input')
+  await input.fill('新的会话名称')
+  await input.press('Enter')
+  await expect(item).toContainText('新的会话名称')
+
+  await page.reload()
+  await page.waitForSelector('aside.sidebar')
+  await expect(page.locator('aside nav .sb-item').first()).toContainText('新的会话名称')
+})

@@ -92,11 +92,10 @@ export const Sidebar: React.FC<Props> = ({ onOpenSettings, onOpenSearch }) => {
                 <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') setEditingId(null) }} onBlur={submit} className="input-base text-xs py-1 px-2 w-full" autoFocus />
               </div>
             )
-            const preview = s.messages.find((m) => m.role === 'user')?.content.slice(0, 22) || s.title
             return (
               <div key={id} className="relative group">
                 <button onClick={() => selectSession(id)} className={`sb-item ${active ? 'on' : ''} w-full`}>
-                  <span className="truncate" style={{ flex: 1 }}>{preview}</span>
+                  <span className="truncate" style={{ flex: 1 }}>{s.title}</span>
                   <span className="group-hover:hidden" style={{ fontSize: 10, color: 'var(--cx-subtle)', flexShrink: 0 }}>{new Date(s.updatedAt).toLocaleString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</span>
                 </button>
                 <div className="absolute right-2 top-1/2 -translate-y-1/2 hidden group-hover:flex gap-1">
