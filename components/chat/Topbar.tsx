@@ -1,4 +1,4 @@
-// 主区顶部条 — Altior 风格:左侧模型下拉,右侧串口状态 + 波特率 + 连接按钮。
+// 主区顶部条 — Codex 风格:左侧模型下拉,右侧串口状态 + 波特率 + 连接按钮。
 // 转速/电流已迁至示波器"实时数据"区。可测选择器:header.topbar / header.topbar button / header.topbar input。
 
 'use client'
@@ -8,13 +8,28 @@ import { useMotorStore } from '@/lib/stores/motorStore'
 import { connect, connectBridge, disconnect, getPortName } from '@/lib/serial/motorController'
 import { BRIDGE_URL, DEFAULT_BAUD } from '@/lib/config'
 import { useLangStore, t } from '@/lib/i18n'
-import { useSettingsStore } from '@/lib/settings'
+import { useSettingsStore, saveSettings, getProviderPreset } from '@/lib/settings'
 
 export const Topbar: React.FC = () => {
   const lang = useLangStore((s) => s.lang)
   const { connected, status } = useMotorStore()
   const [baud, setBaud] = React.useState(String(DEFAULT_BAUD))
   const model = useSettingsStore((s) => s.settings.model || 'qwen-plus')
+  const provider = useSettingsStore((s) => s.settings.provider)
+  const [modelOpen, setModelOpen] = React.useState(false)
+  const modelRef = React.useRef<HTMLSpanElement>(null)
+  const modelOptions = getProviderPreset(provider)?.models ?? []
+
+  React.useEffect(() => {
+    if (!modelOpen) return
+    const onDoc = (e: MouseEvent) => { if (modelRef.current && !modelRef.current.contains(e.target as Node)) setModelOpen(false) }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setModelOpen(false) }
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onKey) }
+  }, [modelOpen])
+
+  const pickModel = (m: string) => { saveSettings({ model: m }); setModelOpen(false) }
 
   const handleToggle = async () => {
     const b = parseInt(baud)
@@ -36,7 +51,25 @@ export const Topbar: React.FC = () => {
 
   return (
     <header className="topbar main-topbar">
-      <span className="model-pill">{model} <span style={{ fontSize: 10 }}>▾</span></span>
+      {modelOptions.length > 0 ? (
+        <span ref={modelRef} style={{ position: 'relative' }}>
+          <button type="button" className="model-pill" data-testid="model-pill" onClick={() => setModelOpen((v) => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+            {model} <span style={{ fontSize: 10 }}>▾</span>
+          </button>
+          {modelOpen && (
+            <div data-testid="model-menu" className="cx-menu" style={{ position: 'absolute', top: 28, left: 0, zIndex: 30, minWidth: 190 }}>
+              {modelOptions.map((m) => (
+                <button key={m} data-testid="model-menu-item" onClick={() => pickModel(m)} className="cx-menu-item"
+                  style={{ background: m === model ? 'var(--cx-hover)' : undefined }}>
+                  {m}
+                </button>
+              ))}
+            </div>
+          )}
+        </span>
+      ) : (
+        <span className="model-pill">{model} <span style={{ fontSize: 10 }}>▾</span></span>
+      )}
 
       <div style={{ flex: 1 }} />
       <span className={`conn`}>

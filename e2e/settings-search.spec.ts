@@ -10,18 +10,18 @@ async function gotoChat(page: Page) {
   await page.waitForSelector('aside.sidebar')
 }
 
-test('设置面板可打开、切换语言并保存', async ({ page }) => {
+test('设置面板:供应商列表屏切换语言并持久化', async ({ page }) => {
   await gotoChat(page)
   await page.locator('aside.sidebar button', { hasText: '设置' }).click()
-  const panel = page.locator('text=使用语言').first()
-  await expect(panel).toBeVisible()
-  // 切语言到英文
+  await expect(page.locator('text=使用语言').first()).toBeVisible()
+  // 第一屏为供应商列表,API Key 输入不在同屏
+  await expect(page.locator('[data-testid="settings-provider-item"]').first()).toBeVisible()
+  await expect(page.locator('[data-testid="settings-api-key"]')).toHaveCount(0)
+  // 切语言到英文(立即持久化)
   await page.locator('select').first().selectOption('en')
-  // 保存
-  await page.locator('button', { hasText: 'Save' }).click()
-  // 面板关闭后,顶栏文案应为英文 Connected(切换生效)
-  await page.keyboard.press('Escape')
-  await page.locator('button', { hasText: 'Save' }).count()
+  const raw = await page.evaluate(() => localStorage.getItem('mototune.settings'))
+  expect(raw).toContain('"language":"en"')
+  await page.locator('[data-testid="settings-close"]').click()
 })
 
 test('搜索对话弹窗:按关键词过滤并跳转', async ({ page }) => {
@@ -50,14 +50,33 @@ test('搜索对话弹窗:按关键词过滤并跳转', async ({ page }) => {
 test('设置改模型后 Topbar 即时更新(响应式)', async ({ page }) => {
   await page.goto('/')
   await page.waitForSelector('aside.sidebar')
-  // 打开设置,填 DeepSeek 模型名,保存
   await page.locator('aside.sidebar button', { hasText: '设置' }).click()
-  await page.locator('select').nth(1).selectOption('自定义')
-  const modelInput = page.locator('input[placeholder="qwen-plus"]')
-  await modelInput.fill('deepseek-chat')
-  await page.locator('button', { hasText: '保存' }).click()
+  // 步骤1:选「自定义」供应商 → 进入 API 屏
+  await page.locator('[data-testid="settings-provider-item"]', { hasText: '自定义' }).click()
+  await page.locator('[data-testid="settings-model"]').fill('deepseek-chat')
+  await page.locator('[data-testid="settings-save"]').click()
+  await page.locator('[data-testid="settings-close"]').click()
   // Topbar 模型 pill 应显示 deepseek-chat(而非 qwen)
   await expect(page.locator('.model-pill')).toContainText('deepseek-chat')
+})
+
+test('Topbar 模型下拉:选择后即时更新并持久化', async ({ page }) => {
+  await page.goto('/')
+  await page.waitForSelector('aside.sidebar')
+  // 选一个带模型列表的供应商(OpenAI)并保存
+  await page.locator('aside.sidebar button', { hasText: '设置' }).click()
+  await page.locator('[data-testid="settings-provider-item"]', { hasText: 'OpenAI' }).click()
+  await expect(page.locator('[data-testid="settings-model"]')).toBeVisible()
+  await page.locator('[data-testid="settings-save"]').click()
+  await page.locator('[data-testid="settings-close"]').click()
+  // Topbar 模型 pill 下拉切换
+  const pill = page.locator('.model-pill')
+  await pill.click()
+  await expect(page.locator('[data-testid="model-menu"]')).toBeVisible()
+  await page.locator('[data-testid="model-menu-item"]', { hasText: 'o4-mini' }).click()
+  await expect(pill).toContainText('o4-mini')
+  const raw = await page.evaluate(() => localStorage.getItem('mototune.settings'))
+  expect(raw).toContain('o4-mini')
 })
 
 test('对话设置:输入提示词并随请求发送,随会话保存', async ({ page }) => {

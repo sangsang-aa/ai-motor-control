@@ -2,11 +2,12 @@
 
 import React, { useState, useEffect } from 'react'
 import { useLangStore, t } from '@/lib/i18n'
-import { loadSettings, saveSettings, PROVIDER_PRESETS, DEFAULT_SETTINGS, type Language } from '@/lib/settings'
+import { loadSettings, saveSettings, PROVIDER_PRESETS, getProviderPreset, type Language } from '@/lib/settings'
 
 export const SettingsPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const lang = useLangStore((s) => s.lang)
   const setLang = useLangStore((s) => s.setLang)
+  const [step, setStep] = useState<'provider' | 'api'>('provider')
   const [provider, setProvider] = useState('')
   const [baseUrl, setBaseUrl] = useState('')
   const [apiKey, setApiKey] = useState('')
@@ -22,13 +23,33 @@ export const SettingsPanel: React.FC<{ onClose: () => void }> = ({ onClose }) =>
     setSaved(false)
   }, [])
 
-  const onProviderChange = (name: string) => {
+  const models = getProviderPreset(provider)?.models ?? []
+  const hasModelList = models.length > 0
+
+  useEffect(() => {
+    const list = getProviderPreset(provider)?.models ?? []
+    if (list.length > 0 && !list.includes(model)) setModel(list[0])
+  }, [provider, model])
+
+  const handleLang = (l: Language) => {
+    setLang(l)
+    saveSettings({ language: l })
+  }
+
+  const pickProvider = (name: string) => {
+    const current = loadSettings()
+    const preset = getProviderPreset(name)
     setProvider(name)
-    const preset = PROVIDER_PRESETS.find((p) => p.name === name)
-    if (preset) {
-      if (preset.baseUrl) setBaseUrl(preset.baseUrl)
-      if (preset.model) setModel(preset.model)
+    if (name === current.provider) {
+      setBaseUrl(current.baseUrl)
+      setApiKey(current.apiKey)
+      setModel(current.model)
+    } else {
+      setBaseUrl(preset?.baseUrl ?? '')
+      setModel(preset?.defaultModel ?? '')
+      setApiKey('')
     }
+    setStep('api')
   }
 
   const handleSave = () => {
@@ -54,46 +75,81 @@ export const SettingsPanel: React.FC<{ onClose: () => void }> = ({ onClose }) =>
       <div style={box}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <span style={{ fontSize: 16, fontWeight: 700 }}>{t(lang, 'settingsTitle')}</span>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--cx-muted)', cursor: 'pointer', fontSize: 18 }}>✕</button>
+          <button data-testid="settings-close" onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--cx-muted)', cursor: 'pointer', fontSize: 18 }}>✕</button>
         </div>
 
-        <div style={{ marginBottom: 14 }}>
-          <label style={label}>{t(lang, 'language')}</label>
-          <select value={lang} onChange={(e) => setLang(e.target.value as Language)} style={input}>
-            <option value="zh">简体中文</option>
-            <option value="en">English</option>
-          </select>
-        </div>
+        {step === 'provider' ? (
+          <>
+            <div style={{ marginBottom: 14 }}>
+              <label style={label}>{t(lang, 'language')}</label>
+              <select value={lang} onChange={(e) => handleLang(e.target.value as Language)} style={input}>
+                <option value="zh">简体中文</option>
+                <option value="en">English</option>
+              </select>
+            </div>
 
-        <div style={{ marginBottom: 14 }}>
-          <label style={label}>{t(lang, 'aiProvider')}</label>
-          <select value={provider} onChange={(e) => onProviderChange(e.target.value)} style={input}>
-            {PROVIDER_PRESETS.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
-          </select>
-        </div>
+            <label style={label}>{t(lang, 'aiProvider')}</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 320, overflowY: 'auto' }}>
+              {PROVIDER_PRESETS.map((p) => (
+                <button
+                  key={p.name}
+                  data-testid="settings-provider-item"
+                  onClick={() => pickProvider(p.name)}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+                    padding: '9px 12px', borderRadius: 8, cursor: 'pointer', textAlign: 'left', fontSize: 13,
+                    background: p.name === provider ? 'var(--cx-surface-2)' : 'transparent',
+                    border: `1px solid ${p.name === provider ? 'var(--cx-border-2)' : 'var(--cx-border)'}`,
+                    color: 'var(--cx-text)'
+                  }}
+                >
+                  <span>{p.name}</span>
+                  <span style={{ fontSize: 10, color: 'var(--cx-subtle)', maxWidth: 170, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {p.baseUrl || '—'}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+              <button data-testid="settings-api-back" onClick={() => setStep('provider')} className="cx-btn cx-btn-ghost">
+                ← {t(lang, 'aiProvider')}
+              </button>
+              <span style={{ fontSize: 13, fontWeight: 600 }}>{provider}</span>
+            </div>
 
-        <div style={{ marginBottom: 14 }}>
-          <label style={label}>{t(lang, 'apiBaseUrl')}</label>
-          <input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} style={input} placeholder="https://.../v1" />
-        </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={label}>{t(lang, 'apiBaseUrl')}</label>
+              <input data-testid="settings-base-url" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} style={input} placeholder="https://.../v1" />
+            </div>
 
-        <div style={{ marginBottom: 14 }}>
-          <label style={label}>{t(lang, 'apiKey')}</label>
-          <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} style={input} placeholder="sk-..." />
-        </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={label}>{t(lang, 'apiKey')}</label>
+              <input data-testid="settings-api-key" type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} style={input} placeholder="sk-..." />
+            </div>
 
-        <div style={{ marginBottom: 18 }}>
-          <label style={label}>{t(lang, 'model')}</label>
-          <input value={model} onChange={(e) => setModel(e.target.value)} style={input} placeholder="qwen-plus" />
-        </div>
+            <div style={{ marginBottom: 18 }}>
+              <label style={label}>{t(lang, 'model')}</label>
+              {hasModelList ? (
+                <select data-testid="settings-model" value={model} onChange={(e) => setModel(e.target.value)} style={input}>
+                  {models.map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
+              ) : (
+                <input data-testid="settings-model" value={model} onChange={(e) => setModel(e.target.value)} style={input} placeholder="model-id" />
+              )}
+            </div>
 
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} className="cx-btn cx-btn-ghost">{t(lang, 'close')}</button>
-          <button onClick={handleSave} className="cx-btn cx-btn-primary">{saved ? '✓ ' + t(lang, 'save') : t(lang, 'save')}</button>
-        </div>
-        <div style={{ marginTop: 10, fontSize: 10, color: 'var(--cx-subtle)', lineHeight: 1.7 }}>
-          填写后发送给 /api/llm 的请求会优先使用此处配置;留空则回退服务端 .env.local。API Key 保存在本机 localStorage。
-        </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={onClose} className="cx-btn cx-btn-ghost">{t(lang, 'close')}</button>
+              <button data-testid="settings-save" onClick={handleSave} className="cx-btn cx-btn-primary">{saved ? '✓ ' + t(lang, 'save') : t(lang, 'save')}</button>
+            </div>
+            <div style={{ marginTop: 10, fontSize: 10, color: 'var(--cx-subtle)', lineHeight: 1.7 }}>
+              保存后仅当前供应商配置生效;API Key 保存在本机 localStorage。
+            </div>
+          </>
+        )}
       </div>
     </div>
   )
