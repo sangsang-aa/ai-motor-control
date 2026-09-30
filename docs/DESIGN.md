@@ -1,6 +1,6 @@
 # DESIGN.md — MOTOTUNE 界面参考(Codex 近黑极简)
 
-**Reference:** Codex 桌面/网页 GUI(近黑、极简、发丝边框);早期布局参考图见 `界面样式.png`。
+**Reference:** Codex 桌面/网页 GUI(近黑、极简、发丝边框)。
 **Goal:** MOTOTUNE(电机控制 + AI 对话)三页(聊天 `/`、示波器 `/scope`、知识库 `/knowledge`)统一为 Codex 视觉;功能与逻辑零改动,仅布局与样式。
 
 ## 1. Palette(tokens)

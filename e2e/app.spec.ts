@@ -43,7 +43,7 @@ test('侧栏可折叠与展开', async ({ page }) => {
   await expect(page.locator('button[title="收起侧栏"]')).toBeVisible()
 })
 
-test('侧栏为固定窄宽(Altior 风格,无拖拽)', async ({ page }) => {
+test('侧栏为固定窄宽(Codex 风格,无拖拽)', async ({ page }) => {
   await gotoChat(page)
   const aside = page.locator('aside.sidebar')
   const w = await aside.evaluate((el) => (el as HTMLElement).offsetWidth)
