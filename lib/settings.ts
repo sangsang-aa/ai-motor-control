@@ -18,13 +18,47 @@ export type SettingsPatch = Partial<Settings>
 
 const LS_KEY = 'mototune.settings'
 
-/** 预设 AI 供应商(与 .env.example 里的说明映射) */
-export const PROVIDER_PRESETS: { name: string; baseUrl: string; model: string }[] = [
-  { name: '阿里云百炼 (DashScope)', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen-plus' },
-  { name: '阿里云百炼 (专属部署)', baseUrl: '', model: 'qwen3.7-plus' },
-  { name: 'OpenAI', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
-  { name: '自定义', baseUrl: '', model: '' }
+export interface ProviderPreset {
+  name: string
+  baseUrl: string
+  models: string[]
+  defaultModel: string
+}
+
+/** 预设 AI 供应商(模型名为各家官方文档当前清单,可在此维护) */
+export const PROVIDER_PRESETS: ProviderPreset[] = [
+  {
+    name: '阿里云百炼 (DashScope)',
+    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    models: ['qwen-plus', 'qwen-max', 'qwen3.8-max', 'qwen3.7-plus', 'qwen3.8-flash', 'qwen3-vl-plus'],
+    defaultModel: 'qwen-plus'
+  },
+  { name: '阿里云百炼 (专属部署)', baseUrl: '', models: ['qwen3.7-plus'], defaultModel: 'qwen3.7-plus' },
+  {
+    name: 'OpenAI',
+    baseUrl: 'https://api.openai.com/v1',
+    models: ['gpt-5.6-terra', 'gpt-5.6-sol', 'gpt-5.6-luna', 'gpt-5', 'gpt-5-mini', 'gpt-4.1', 'gpt-4.1-mini', 'o4-mini'],
+    defaultModel: 'gpt-5.6-terra'
+  },
+  { name: 'DeepSeek', baseUrl: 'https://api.deepseek.com/v1', models: ['deepseek-v4-pro', 'deepseek-v4-flash'], defaultModel: 'deepseek-v4-pro' },
+  {
+    name: '月之暗面 Kimi',
+    baseUrl: 'https://api.moonshot.cn/v1',
+    models: ['kimi-k2.6', 'kimi-k2.5', 'kimi-k2.7-code', 'moonshot-v1-128k', 'moonshot-v1-32k', 'moonshot-v1-8k'],
+    defaultModel: 'kimi-k2.6'
+  },
+  {
+    name: '智谱 GLM',
+    baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+    models: ['glm-4.7', 'glm-4.7-flash', 'glm-4.6', 'glm-4.5-air'],
+    defaultModel: 'glm-4.7'
+  },
+  { name: '自定义', baseUrl: '', models: [], defaultModel: '' }
 ]
+
+export function getProviderPreset(name: string): ProviderPreset | undefined {
+  return PROVIDER_PRESETS.find((p) => p.name === name)
+}
 
 export const DEFAULT_SETTINGS: Settings = {
   language: 'zh',
