@@ -19,7 +19,7 @@
 **为什么重构**(与用户确认的决策,勿偏离):
 
 1. **先写齐 Web 版基本功能,再封装 Electron 桌面版** — 这是本分支的最终路线:当前阶段只做 Web(Next.js),功能齐备后加 Electron 壳层打包为桌面应用。
-2. **砍掉 Python 后端** — 串口协议层已用纯 TS 重写(`lib/serial/modbus.ts`,Modbus RTU),浏览器通过 **Web Serial API** 直连 DSP 下位机,不再需要 pyserial/numpy 子进程。
+2. **砍掉 Python 后端** — 串口协议层已用纯 TS 重写(`lib/serial/modbus.ts`,Modbus RTU),浏览器通过 **Web Serial API** 直连 DSP 下位机(当前为 **TI C2000 F280025C** 开发板),不再需要 pyserial/numpy 子进程。
 3. **LLM 走同源代理** — `/api/llm` 服务端代理保护 API key + 绕 CORS,key 只存 `.env.local`(不入库),浏览器永不接触。
 4. **纯客户端渲染** — 页面全部 `'use client'`,禁止新增 SSR/Server Component 依赖(便于后续 Electron 封装,见下)。
 
@@ -74,7 +74,7 @@ Next.js (App Router, 纯客户端渲染)
 - 线圈(功能码 01/05/0F,独立地址空间):`COIL_MOTOR_EN`(0x0000)、`COIL_FAULT_RESET`(0x0001)、`COIL_EMERGENCY_STOP`(0x0002)
 - float32 参数占 2 寄存器,big-endian(高字低地址);CRC-16/MODBUS
 - 遥测由主站每 50ms 轮询 0x03 读回(无持续推送帧)→ 示波器数据源
-- **波特率默认 `781250`**(`lib/config.ts`,与当前控制板固件配置一致;不得沿用旧的 115200/1500000 配置)
+- **波特率默认 `781250`**(`lib/config.ts`,与当前控制板(TI C2000 F280025C)固件配置一致;不得沿用旧的 115200/1500000 配置)
 - **5kHz 电流波形读取**(`readWaveFrame`,每 5ms 检查 ready,区别于 50ms 遥测):读 `0x2200×2` 确认 ready → **四段 `0x2000/0x2032/0x2064/0x2096 × 50`** → 每 2 寄存器拼一个 float32 → 写 `0x2201=0` 并校验 `0x06` 回显 → `wave_frame`。分块使 Web Serial/XDS110 不再依赖 255 字节极限响应；冻结单批协议仍可能因 USB 往返延迟漏掉候选批，示波器按实际到达时间保留缺口。
 - **波形轮询开关**:`WAVE_POLLING_ENABLED` 默认 `true`；当前烧录固件已经连续多批实板验证 `0x2000/0x2200`。
 - **`ACTUAL_SPEED/ACTUAL_CURRENT(0x1000/0x1002)`**:当前测试固件以转速设定值回显 `ACTUAL_SPEED`；实际编码器闭环仍需在 `control_loop_tick` 接入。急停时会清转速设定。
@@ -85,8 +85,9 @@ Next.js (App Router, 纯客户端渲染)
 - **XDS110 直连时序**:打开物理端口后必须显式设置 `DTR=false`，保留 RTS 的 Chromium 默认状态，并等待 `DIRECT_PORT_SETTLE_MS`(100ms) 再发首个 Modbus 帧。COM4 驱动支持 DTR 但不声明支持 RTS 流控，DTR 设置失败必须向用户报告，不能吞掉异常。事务必须在写请求前真正启动 pending `reader.read()`。COM4/781250/8N1 上正确验证帧为 `01 03 10 00 00 04 40 C9`。
 - **XDS110 双接口**:同一 XDS110 会暴露 `MI_00` Application/User UART(COM4)和 `MI_03` Auxiliary Data(COM3)，Web Serial 对两者只暴露相同 VID/PID。直连须限定 TI `0451:bef3`，并对已授权接口逐个做只读 Modbus 验证，不能把用户在选择器中选中的第一个 XDS110 直接视为控制口。
 - **重连隔离**:轮询绑定连接代次。断开或超时后旧 telemetry/wave 循环不得向新端口继续发帧；新增后台轮询也必须检查当前连接代次。
-- **协议单一来源**:实际烧录控制板固件、`lib/config.ts` 和 `docs/modbus_rtu_protocol.md` 必须同步维护串口参数。当前控制板固定为 781250/8N1/slave 0x01；波形缓冲能力以实际烧录固件为准。
-- **实板诊断边界**:已知只读探针帧为 `01 03 10 00 00 04 40 C9`。若 Windows 原生 COM4/781250/8N1 连续读取 5 秒也为 `RX(0)`，不得继续靠前端延长超时或增加重试掩盖问题；先确认目标 CPU 正在运行、从站程序已烧入 Flash、SCI-A GPIO28/29 pinmux/跳线正常，并用逻辑分析仪区分目标 RX 与 TX。
+- **协议单一来源**:实际烧录控制板固件(TI C2000 F280025C)、`lib/config.ts` 和 `docs/modbus_rtu_protocol.md` 必须同步维护串口参数。当前控制板固定为 781250/8N1/slave 0x01；波形缓冲能力以实际烧录固件为准。
+- **目标板卡**:当前直连的下位机为 **TI C2000 F280025C** 开发板;上位机(Web)代码与具体下位机程序解耦,固件实现不在本仓库维护。
+- **实板诊断边界**:已知只读探针帧为 `01 03 10 00 00 04 40 C9`。若 Windows 原生 COM4/781250/8N1 连续读取 5 秒也为 `RX(0)`，不得继续靠前端延长超时或增加重试掩盖问题；先确认目标 CPU(TI C2000 F280025C)正在运行、从站程序已烧入 Flash、SCI-A GPIO28/29 pinmux/跳线正常，并用逻辑分析仪区分目标 RX 与 TX。
 
 ## Web Serial 已知约束(坑)
 
