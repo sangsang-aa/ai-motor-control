@@ -40,7 +40,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     models: ['gpt-5.6-terra', 'gpt-5.6-sol', 'gpt-5.6-luna', 'gpt-5', 'gpt-5-mini', 'gpt-4.1', 'gpt-4.1-mini', 'o4-mini'],
     defaultModel: 'gpt-5.6-terra'
   },
-  { name: 'DeepSeek', baseUrl: 'https://api.deepseek.com/v1', models: ['deepseek-v4-pro', 'deepseek-v4-flash'], defaultModel: 'deepseek-v4-pro' },
+  { name: 'DeepSeek', baseUrl: 'https://api.deepseek.com/v1', models: ['deepseek-v4-pro', 'deepseek-flash'], defaultModel: 'deepseek-v4-pro' },
   {
     name: '月之暗面 Kimi',
     baseUrl: 'https://api.moonshot.cn/v1',
