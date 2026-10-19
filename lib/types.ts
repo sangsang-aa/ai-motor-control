@@ -1,5 +1,7 @@
 // Web 版跨层类型 — 从原 Electron 版 src/shared/types.ts 迁移(去掉 MotraApi/窗口相关)
 
+import type { ConfigParamName } from './config'
+
 export type SessionStatus = 'idle' | 'running' | 'error'
 export type LockStatus = 'idle' | 'pending' | 'executing'
 
@@ -80,3 +82,63 @@ export type BackendEvent =
   | BackendExecuted
   | BackendPong
   | WaveFrame
+
+// ── PMSM 参数辨识(独立模块,通讯不复用 Modbus)──────────────────
+export type TestMethod = 'manual' | 'auto'
+
+/** 测试编号(与下位机一致):0 停止,1 Rs,2 Ld,3 Lq,4 Mech */
+export type PmTestId = 0 | 1 | 2 | 3 | 4
+
+export const PM_TEST_LABEL: Record<PmTestId, string> = {
+  0: '停止',
+  1: 'Rs 相电阻',
+  2: 'Ld d轴电感',
+  3: 'Lq q轴电感',
+  4: 'Mech (Ke,J,B)'
+}
+
+/** 控制字(命令 22) */
+export interface ControlWord {
+  /** bit0 启动/停止 */
+  enable: boolean
+  /** bit1 手动/自动 */
+  auto: boolean
+  /** bit4-7 测试号 */
+  test: PmTestId
+  /** bit8-12 调试通道号 */
+  debug: number
+}
+
+/** 辨识结果 */
+export interface ParamEstResult {
+  Rs: number
+  Ld: number
+  Lq: number
+  Ke: number
+  J: number
+  B: number
+}
+
+/** 配置器参数值(命令 1..21) */
+export type ParamEstConfig = Partial<Record<ConfigParamName, number>>
+
+/** 数据可用性报告 */
+export interface DataQualityReport {
+  ok: boolean
+  /** 完整性:帧结构/长度/无 NaN */
+  complete: boolean
+  /** 有效性:数值非全零/非饱和/在量程内 */
+  valid: boolean
+  frames: number
+  blocks: number
+  reason?: string
+}
+
+/** 参数辨识事件(独立总线 paramEstBus,不并入 backendBus) */
+export type ParamEstEvent =
+  | { type: 'pe_status'; connected: boolean; port: string; baudRate: number }
+  | { type: 'pe_progress'; frames: number; blocks: number; bytes: number }
+  | { type: 'pe_waveform'; a: number[]; b: number[] }
+  | { type: 'pe_result'; result: Partial<ParamEstResult>; quality: DataQualityReport }
+  | { type: 'pe_data_error'; message: string; quality?: DataQualityReport }
+  | { type: 'pe_error'; message: string }
