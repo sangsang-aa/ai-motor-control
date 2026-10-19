@@ -23,6 +23,7 @@ const Ico = {
   search: <svg {...ICON_PROPS}><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>,
   panel: <svg {...ICON_PROPS}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /></svg>,
   scope: <svg {...ICON_PROPS}><path d="M3 12h3l2-6 3 12 2.5-8 1.5 2h6" /></svg>,
+  paramEst: <svg {...ICON_PROPS}><path d="M4 7h16M4 17h16" /><circle cx="9" cy="7" r="2" /><circle cx="15" cy="17" r="2" /></svg>,
   book: <svg {...ICON_PROPS}><path d="M4 5a2 2 0 0 1 2-2h13v18H6a2 2 0 0 1-2-2z" /><path d="M8 3v18" /></svg>,
   download: <svg {...ICON_PROPS}><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M4 21h16" /></svg>,
   gear: <svg {...ICON_PROPS}><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1" /></svg>,
@@ -56,6 +57,7 @@ export const Sidebar: React.FC<Props> = ({ onOpenSettings, onOpenSearch }) => {
         <button onClick={onOpenSearch} style={{ color: 'var(--cx-muted)', cursor: 'pointer', background: 'none', border: 'none', display: 'flex' }} title={t(lang, 'search')}>{Ico.search}</button>
         <Link href="/scope" style={{ color: 'var(--cx-muted)', cursor: 'pointer', textDecoration: 'none', display: 'flex' }} title={t(lang, 'scope')}>{Ico.scope}</Link>
         <Link href="/knowledge" style={{ color: 'var(--cx-muted)', cursor: 'pointer', textDecoration: 'none', display: 'flex' }} title={t(lang, 'knowledge')}>{Ico.book}</Link>
+        <Link href="/param-est" style={{ color: 'var(--cx-muted)', cursor: 'pointer', textDecoration: 'none', display: 'flex' }} title={t(lang, 'paramEst')}>{Ico.paramEst}</Link>
         <button onClick={handleExport} style={{ color: 'var(--cx-muted)', cursor: 'pointer', background: 'none', border: 'none', display: 'flex' }} title={t(lang, 'export')}>{Ico.download}</button>
         <button onClick={onOpenSettings} style={{ color: 'var(--cx-muted)', cursor: 'pointer', background: 'none', border: 'none', display: 'flex' }} title={t(lang, 'settings')}>{Ico.gear}</button>
       </div>
@@ -114,6 +116,9 @@ export const Sidebar: React.FC<Props> = ({ onOpenSettings, onOpenSearch }) => {
           </Link>
           <Link href="/knowledge" className="sb-item" style={{ textDecoration: 'none' }}>
             <span className="sb-icon">{Ico.book}</span>{t(lang, 'knowledge')}
+          </Link>
+          <Link href="/param-est" className="sb-item" style={{ textDecoration: 'none' }}>
+            <span className="sb-icon">{Ico.paramEst}</span>{t(lang, 'paramEst')}
           </Link>
           <button onClick={handleExport} className="sb-item">
             <span className="sb-icon">{Ico.download}</span>{t(lang, 'export')}
