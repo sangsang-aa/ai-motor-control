@@ -37,23 +37,28 @@ Next.js (App Router, 纯客户端渲染)
 │   ├── page.tsx          → ChatApp(聊天主页, /)
 │   ├── scope/page.tsx    → ScopeApp(示波器, /scope)
 │   ├── knowledge/page.tsx→ KnowledgeApp(知识库, /knowledge)
+│   ├── param-est/page.tsx→ ParamEstApp(PMSM 参数辨识, /param-est;独立 SCI)
 │   └── api/llm/route.ts  → LLM 代理(唯一服务端代码)
 ├── components/chat/      → ChatApp/Topbar/Sidebar/ChatPane/Composer/ConfirmCard/EStop/横幅 + SettingsPanel/SearchDialog/ConversationSettingsPanel
 ├── components/knowledge/ → KnowledgeApp(建库/上传)/KnowledgePicker(投送选择)
 ├── components/scope/     → ScopeApp(带"实时数据"区)/ScopeChart/ChannelPanel/HexView/Pause/HexToggle
+├── components/param-est/ → ParamEstApp/ConnectionBar/TestControlPanel/ConfigPanel/EstimatedParamsPanel/DebugScope
 └── lib/
-    ├── types.ts          → 跨层类型(BackendEvent/LlmEvent/Session/Message/MotorStatus/KnowledgePayload)
-    ├── bus.ts            → 事件总线:backendBus(串口)/llmBus(LLM)/hexBus(原始字节)
-    ├── config.ts         → 常量 DEFAULT_BAUD/RPM_LIMIT/COMMAND_CONFIRM_TIMEOUT
+    ├── types.ts          → 跨层类型(BackendEvent/LlmEvent/Session/Message/MotorStatus/KnowledgePayload + ParamEstEvent/ParamEstResult)
+    ├── bus.ts            → 事件总线:backendBus(串口)/llmBus(LLM)/hexBus(原始字节)/paramEstBus(参数辨识)
+    ├── config.ts         → 常量 DEFAULT_BAUD/RPM_LIMIT/COMMAND_CONFIRM_TIMEOUT + PARAM_EST_BAUD(12M)/帧常量/ALGO_CHANNELS
     ├── settings.ts       → localStorage 设置(语言/AI 供应商/baseUrl/apiKey/model)+ useSettingsStore(响应式,Topbar 模型联动)
     ├── i18n.ts           → 中/英字典 + useLangStore(响应式切换)
     ├── serial/modbus.ts → Modbus RTU 协议层(CRC16/01/03/05/06/0F/10 帧 + float32 编解码 + 地址表 ADDR/FC)
     ├── serial/motorController.ts → Web Serial 适配 + 串行事务队列 + 超时断开恢复 + 写命令 + 50ms 轮询遥测
+    ├── serial/mcbHostProtocol.ts → 参数辨识 MCB host-target 协议编解码(纯逻辑,可单测)
+    ├── serial/paramEstController.ts → 参数辨识:独立 SCI Web Serial + 采集/空闲超时 + 解复用 + 辨识
+    ├── analysis/{quality,demux,paramEstimation}.ts → 质量判定 / 按帧解复用 / Rs-Ld-Lq-Ke-J-B 估计
     ├── llm/llmClient.ts  → SSE 解析 + abort(浏览器端)
     ├── llm/tools.ts      → 工具定义 TOOLS + 系统提示词 SYSTEM_PROMPT(前后端共用)
     ├── knowledge/db.ts   → 知识库 IndexedDB(原生,无依赖);context.ts 汇总+预算;extract.ts pdfjs 文本/图片
     ├── report.ts         → 会话报告导出(Blob 下载)
-    └── stores/           → session/motor/commandLock/scope/knowledge 5 个 zustand store(会话/设置持久化 localStorage;知识库存 IndexedDB)
+    └── stores/           → session/motor/commandLock/scope/knowledge/paramEst 6 个 zustand store(会话/设置持久化 localStorage;知识库存 IndexedDB)
 ```
 
 ## 数据流
@@ -64,6 +69,7 @@ Next.js (App Router, 纯客户端渲染)
 - **知识库接入 AI(投送一次,每轮自动带)**:`session.kbIds` 存已投送库 id(持久);`ChatApp.handleSend` 每次发送按 kbIds 从 IndexedDB 经 `buildKnowledgePayload` 现取现注入(**不把大文本/图片存进会话消息**)。PDF→文本(合计 ≤12000 字符截断);图片→多模态 `image_url`(≤4 张 ≤2MB)。上游不支持图片 → route **去图重试** + 回 `X-Knowledge-Images-Dropped:1` → 主界面提示"当前模型不支持图片";**无能力记忆**(换多模态模型后自动恢复)。
 - **命令锁链**:`tool_call` → `lock.lock()` → `setPendingToolCall` → ChatPane `ConfirmCard` → 确认 → `motorController.sendCommand` → `executed` 事件 → `lock.unlock()`。30s 超时自动取消。`get_status` 免确认自动执行。`set_motor_state`/`sendCommand` 走 Modbus,`write_pid_<REG>` 写保存寄存器(供 AI 自调整)。
 - **示波器**:50ms telemetry 只更新实时电流/转速数字；5kHz `wave_frame` → `scopeStore.enqueueWaveFrame` 每批整体替换 100 点缓冲 → 唯一 `ScopeChart`(SVG rAF)。原始字节 → `hexBus` → `appendHex`。
+- **参数辨识(独立)**:`/param-est` → `paramEstController`(独立 SCI,默认 12 Mbaud,8N1)→ `paramEstBus` → `paramEstStore`;300ms 空闲超时判定采集完成 → 质量判定 → 解复用(Vd/Vq/Id/Iq/Speed)→ 主机侧辨识(Rs/Ld/Lq/Ke/J/B)。与 Modbus/`backendBus` **完全隔离**,不复用 781250。
 - **持久化**:会话存 localStorage(`mototune.sessions`),示波器通道配置存 localStorage(`scope.*`),设置存 localStorage(`mototune.settings`);**知识库文件存 IndexedDB**(`mototune.knowledge`,`kb`+`kbFile` store,不入 localStorage)。
 - **设置响应式**:`useSettingsStore`(zustand)是设置唯一响应式源;`saveSettings`/`loadSettings` 都会写它。**组件订阅 store 而非直接读 localStorage**——否则改模型/供应商不刷新(曾 bug:Topbar 模型名残留 qwen)。
 - **空消息防御**:`sessionStore.applyLlmEvent` 对空 content 的 text 不新建消息;`ChatApp` tool_call 时不再追加空 text——避免"空气泡"。新增消息给 content 若为空串直接跳过。

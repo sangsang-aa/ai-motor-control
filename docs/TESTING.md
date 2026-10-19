@@ -6,8 +6,8 @@
 
 | 层 | 工具 | 目录 | 覆盖 |
 |---|---|---|---|
-| 单元测试 | Vitest | `unit/` | 协议层、LLM SSE 解析、会话 store、示波器 store、电机 store、命令锁 store(纯逻辑,不依赖浏览器) |
-| E2E 测试 | Playwright | `e2e/` | 页面渲染/交互、对话、tool calling、串口识别、示波器波形(真实 Chromium) |
+| 单元测试 | Vitest | `unit/` | 协议层、LLM SSE 解析、会话 store、示波器 store、电机 store、命令锁 store、参数辨识协议/算法(纯逻辑,不依赖浏览器) |
+| E2E 测试 | Playwright | `e2e/` | 页面渲染/交互、对话、tool calling、串口识别、示波器波形、参数辨识(真实 Chromium) |
 
 ## 运行方式
 
@@ -103,6 +103,21 @@ npm test                 # 单元测试
 | 会话 CRUD | 创建/删除/重命名/切换正确(单测) |
 | 消息类型 | 流式追加/error/interrupted 正确落库(单测) |
 
+### 7. PMSM 参数辨识(/param-est,独立 SCI)
+
+**文件**: `e2e/param-est.spec.ts`、`unit/{mcbHostProtocol,demux,quality,paramEstimation,paramEstimation.model,pipeline,paramEstStore,sampleCompare}.spec.ts`
+
+| 用例 | 验收标准 |
+|---|---|
+| 侧栏入口 | 聊天侧栏 `/param-est` 可进入参数辨识页 |
+| 连接 → 采集 → 辨识 | 连接 → 下发测试 → 下位机停发后空闲超时 → 显示 Rs(取 float1,不取 float2) |
+| 配置下发 | 命令 1..21 顺序正确 |
+| 波形渲染 | 通道 A/B 的 SVG path ≥ 2 |
+| 断开 | 回到「未连接」 |
+| 数据不可用 | 显示「出现数据错误」 |
+| 协议/算法单测 | 帧编解码、质量判定、解复用、Rs/Ld/Lq/Ke/J/B 估计 |
+| 样例对比 | `unit/sampleCompare.spec.ts`:CSV 缺失时自动 skip;`npm run verify:sample` 用 MATLAB 同输入对比 |
+
 ## Mock 方案(测试不依赖真实硬件/真实 LLM)
 
 - **LLM**:Playwright `page.route('**/api/llm')` 拦截,返回固定 SSE 流(text / tool_call / error)。见 `e2e/chat.spec.ts`、`e2e/tool-call.spec.ts`。
@@ -111,6 +126,7 @@ npm test                 # 单元测试
   - `readable` 收到请求后 enqueue 响应(供轮询 `0x03` 读遥测)
   - `getInfo()` 返回 `usbVendorId:0x2345, usbProductId:0x6789`(用于设备名断言)
 - **协议层**:单测直接测 `lib/serial/modbus.ts`(CRC16、帧构建/解析、float32 编解码),与 `docs/modbus_rtu_protocol.md` 对齐。
+- **参数辨识串口**:`e2e/mockParamEstSerial.ts` 注入**独立** fake `navigator.serial`(MCB 从站:收到命令 22 后发 600 帧块,随后停发),写入记录到 `window.__peWrites`;与 Modbus mock 的 `window.__sfWrites` 互不干扰。参数辨识协议/算法由 `unit/` 单测覆盖,不依赖真实硬件。
 
 ## 关键约定(防止回归)
 
