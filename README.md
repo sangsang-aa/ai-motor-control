@@ -19,11 +19,11 @@ npm run dev                  # http://localhost:3000
 
 ## 功能
 
-- AI 自然语言控制电机 (set_speed / set_motor_state / get_status)
+- AI 自然语言控制电机 (set_speed / set_motor_state / set_mode / set_param / get_status)
 - 指令人工确认机制 (30s 超时自动取消) + 急停按钮
-- Web Serial 直连串口,协议: **Modbus RTU**(下位机为 TI C2000 F280025C,默认 781250 波特率;保持寄存器参数 + 线圈开关)
-- PMSM 参数辨识 `/param-est`(独立 SCI,默认 12 Mbaud;**通讯不复用 Modbus**,上位机做参数计算)
-- SVG 示波器实时波形 (多通道 + 暂停/HEX 切换 + 通道量程/偏移调节)
+- Web Serial 直连串口,协议: **AI-Motor v1**(TI C2000 F280025C,115200 8N1;mode5/6/7/8 + 参数表 + 100Hz 遥测)
+- PMSM 参数辨识 `/param-est`(复用主串口 **mode7**;母线/极对数/最大测试电流 → Rs/Ld/Lq/Ls)
+- SVG 示波器实时波形 (100Hz 多通道 + 暂停/HEX 切换 + 通道量程/偏移调节)
 - 会话自动持久化 (localStorage) + HTML 报告导出
 - 双页面:聊天 `/` + 示波器 `/scope`
 
@@ -32,16 +32,16 @@ npm run dev                  # http://localhost:3000
 ```
 Next.js (纯客户端渲染, 唯一服务端 = /api/llm 代理)
   │
-  ├── ChatApp (/)  ←── backendBus / llmBus ──→  ScopeApp (/scope)
+  ├── ChatApp (/)  ←── aiMotorBus / llmBus ──→  ScopeApp (/scope) / ParamEstApp (/param-est)
   │                       │
-  │        lib/serial/motorController.ts (Web Serial)
+  │        lib/serial/aimotor/controller.ts (Web Serial · AI-Motor v1)
   │        lib/llm/llmClient.ts (SSE) → /api/llm → LLM (阿里云百炼兼容接口)
   │
-  └── 4 个 zustand store: session / motor / commandLock / scope
+  └── 5 个 zustand store: session / motor / commandLock / scope / knowledge
 ```
 
-- **串口**:浏览器 Web Serial API 直连 DSP 下位机(当前为 TI C2000 F280025C),协议层纯 TS(`lib/serial/modbus.ts`,Modbus RTU)
-- **参数辨识**:独立模块 `lib/serial/paramEstController.ts`(独立 SCI / 12 Mbaud)+ `lib/analysis/*` + `paramEstBus`,页面 `/param-est`;架构图见 `docs/param-est-architecture-flow.svg`
+- **串口**:浏览器 Web Serial API 直连 DSP 下位机(当前为 TI C2000 F280025C),协议层纯 TS(`lib/serial/aimotor/*`,AI-Motor v1)
+- **参数辨识**:`/param-est` 复用同一串口的 mode7(母线/极对数/最大测试电流 → Rs/Ld/Lq/Ls);协议细节见 `docs/aimotor_protocol.md`
 - **LLM**:同源代理 `/api/llm` 保护 API key,SSE 流式,工具调用需人工确认
 - **事件**:统一事件总线(`lib/bus.ts`),替代原 Electron 版 IPC 广播
 

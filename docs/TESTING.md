@@ -6,8 +6,8 @@
 
 | 层 | 工具 | 目录 | 覆盖 |
 |---|---|---|---|
-| 单元测试 | Vitest | `unit/` | 协议层、LLM SSE 解析、会话 store、示波器 store、电机 store、命令锁 store、参数辨识协议/算法(纯逻辑,不依赖浏览器) |
-| E2E 测试 | Playwright | `e2e/` | 页面渲染/交互、对话、tool calling、串口识别、示波器波形、参数辨识(真实 Chromium) |
+| 单元测试 | Vitest | `unit/` | AI-Motor 帧/CRC/参数校验、LLM SSE 解析、会话/示波器/命令锁 store、知识库(纯逻辑) |
+| E2E 测试 | Playwright | `e2e/` | 页面渲染/交互、对话、tool calling、AI-Motor 串口/握手、100Hz 示波器、mode7 辨识 |
 
 ## 运行方式
 
@@ -60,32 +60,31 @@ npm test                 # 单元测试
 | 用例 | 验收标准 |
 |---|---|
 | tool_call → 确认卡 | 出现 ConfirmCard,显示"设置转速: X RPM";点忽略后卡片消失、lock 解除 |
-| 确认后写串口 | 注入 fake serial,点确认后串口收到 `set_speed(3000,on=1)` 编码字节 `[b8,0b,01,00]`;结果气泡 `OK rpm=3000 on=1` |
+| 确认后写串口 | 注入 `fakeAiMotorSerial`,点确认后收到 `SET_PARAM(mode6, param1, 3000)`;结果气泡 `OK rpm=3000` |
+| 启动/安全锁 | `set_motor_state(true)` → `SET_MODE + ENABLE`;`set_param(24,10)` 被安全锁拒绝且不下发 |
 
 ### 4. 串口能正常识别
 
-**文件**: `e2e/serial-scope.spec.ts`(fake `navigator.serial`)
+**文件**: `e2e/serial-scope.spec.ts`(`fakeAiMotorSerial`)
 
 | 用例 | 验收标准 |
 |---|---|
-| 连接识别 | 点击"连接串口"后顶栏显示"已连接"+ 设备名(`USB:2345:6789`) |
-| telemetry 更新 | 连接后转速非零(收到帧) |
+| 连接识别 | 点击"连接串口"后顶栏显示"已连接"+ 设备名(`USB:0451:BEF3`);open 选项 115200/8N1 |
+| telemetry 更新 | 连接后 100Hz SAMPLE → 转速/电流非零 |
 
 ### 4.1 串口可靠性与自愈(补充基线)
 
-**文件**: `e2e/serial-recovery.spec.ts`(fake `navigator.serial`,不碰真实硬件)
+**文件**: `e2e/serial-recovery.spec.ts`(`fakeAiMotorSerial`,不碰真实硬件)
 
 | 用例 | 验收标准 |
 |---|---|
-| 首个响应丢失自动重试 | 同一连接内重试,不误报断线 |
-| 静默 XDS110 辅助口探测 | 自动探测已授权控制口,不卡死 |
-| 连续三次无响应 | 释放 reader,用户可重新连接 |
-| DTR 设置失败 | 向用户报告错误,而非静默超时 |
+| 首个 ACK 丢失自动重试 | `dropFirstAck` → 同 seq 重发,不误报断线 |
+| HELLO 连续无响应 | 握手失败提示,释放 reader,可重新连接 |
 
 ### 5. 示波器接收串口数据、模拟数据输入、输出正常波形
 
-**文件**: `e2e/serial-scope.spec.ts` + `e2e/mockSerial.ts`
-`mockSerial.ts` 把 `navigator.serial` 模拟为 **Modbus RTU 从站**(内置 `ACTUAL_SPEED=2000`、`ACTUAL_CURRENT=3.0` 的 float32 寄存器),上位机每 50ms 轮询 `0x03` 读遥测 → telemetry → scopeStore → SVG。
+**文件**: `e2e/serial-scope.spec.ts` + `e2e/mockAiMotorSerial.ts`
+`mockAiMotorSerial.ts` 把 `navigator.serial` 模拟为 **AI-Motor v1 从站**:HELLO 后每 10ms 发 `SAMPLE`、每 100ms 发 `MODEL`,`SAMPLE` → `scopeStore.appendAiSample`(100Hz)→ SVG。
 
 | 用例 | 验收标准 |
 |---|---|
@@ -103,36 +102,33 @@ npm test                 # 单元测试
 | 会话 CRUD | 创建/删除/重命名/切换正确(单测) |
 | 消息类型 | 流式追加/error/interrupted 正确落库(单测) |
 
-### 7. PMSM 参数辨识(/param-est,独立 SCI)
+### 7. PMSM 参数辨识(/param-est,mode7)
 
-**文件**: `e2e/param-est.spec.ts`、`unit/{mcbHostProtocol,demux,quality,paramEstimation,paramEstimation.model,pipeline,paramEstStore,sampleCompare}.spec.ts`
+**文件**: `e2e/param-est.spec.ts`、`unit/{aimotorProtocol,aimotorParams,aimotorStore}.spec.ts`
 
 | 用例 | 验收标准 |
 |---|---|
-| 侧栏入口 | 聊天侧栏 `/param-est` 可进入参数辨识页 |
-| 连接 → 采集 → 辨识 | 连接 → 下发测试 → 下位机停发后空闲超时 → 显示 Rs(取 float1,不取 float2) |
-| 配置下发 | 命令 1..21 顺序正确 |
-| 波形渲染 | 通道 A/B 的 SVG path ≥ 2 |
-| 断开 | 回到「未连接」 |
-| 数据不可用 | 显示「出现数据错误」 |
-| 协议/算法单测 | 帧编解码、质量判定、解复用、Rs/Ld/Lq/Ke/J/B 估计 |
-| 样例对比 | `unit/sampleCompare.spec.ts`:CSV 缺失时自动 skip;`npm run verify:sample` 用 MATLAB 同输入对比 |
+| 侧栏入口 | 聊天侧栏 `/param-est` 可进入 |
+| 连接 → 配置 → 启动 | 115200 连接;`SET_PARAM 40/41/42` → `SET_MODE 7` → `ENABLE` |
+| 结果显示 | 已应用模型 Rs/Ld/Lq/Ls 显示 |
+| 失败原因 | mode7 error → 显示「重复性不合格」 |
+| 协议/参数单测 | 帧/CRC/解码、参数范围/安全锁、store 映射 |
 
 ## Mock 方案(测试不依赖真实硬件/真实 LLM)
 
 - **LLM**:Playwright `page.route('**/api/llm')` 拦截,返回固定 SSE 流(text / tool_call / error)。见 `e2e/chat.spec.ts`、`e2e/tool-call.spec.ts`。
-- **串口**:`e2e/mockSerial.ts` 的 `fakeSerialInitScript()` 注入 fake `navigator.serial`(用 `Object.defineProperty` 覆盖 Chromium 只读 getter)。fake 端口模拟 **Modbus 从站**(处理功能码 `01/03/05/06/10`,内含 CRC 校验),收到写入请求即生成对应响应:
-  - `writable` 把请求字节记录到 `window.__sfWrites`(供断言 `sendCommand` 的 Modbus 帧)
-  - `readable` 收到请求后 enqueue 响应(供轮询 `0x03` 读遥测)
-  - `getInfo()` 返回 `usbVendorId:0x2345, usbProductId:0x6789`(用于设备名断言)
-- **协议层**:单测直接测 `lib/serial/modbus.ts`(CRC16、帧构建/解析、float32 编解码),与 `docs/modbus_rtu_protocol.md` 对齐。
-- **参数辨识串口**:`e2e/mockParamEstSerial.ts` 注入**独立** fake `navigator.serial`(MCB 从站:收到命令 22 后发 600 帧块,随后停发),写入记录到 `window.__peWrites`;与 Modbus mock 的 `window.__sfWrites` 互不干扰。参数辨识协议/算法由 `unit/` 单测覆盖,不依赖真实硬件。
+- **串口**:`e2e/mockAiMotorSerial.ts` 的 `fakeAiMotorSerial()` 注入 fake `navigator.serial`(AI-Motor v1 从站):
+  - 解析 `0x01` 命令,回 `0x81 ACK`(HEARTBEAT 不回)
+  - HELLO 后每 10ms 发 `0x80` 遥测、每 100ms 发 `0x82` 模型;`GET_CONFIG` 回 `0x83`
+  - 写入记录到 `window.__aiWrites`,`decodeAiCommands()` 供断言
+  - 选项:`dropFirstAck`(首包丢失)、`noHelloAckCount`(握手失败)、`silent`、`mode7Error`
+- **协议层**:单测 `lib/serial/aimotor/{protocol,params}.ts`(CRC/帧/解码/参数校验),与 `docs/aimotor_protocol.md` 对齐。
 
 ## 关键约定(防止回归)
 
-- `set_speed` → 写 `SPEED_SETPOINT` 保持寄存器(0x06/0x10);结果文本 `OK rpm=<rpm>`
-- `set_motor_state` → 写 `COIL_MOTOR_EN`(0x05);`emergency_stop` → 写 `COIL_EMERGENCY_STOP`
-- PID 参数(`write_pid_<REG>`)→ 写保持寄存器(float32,2 寄存器,big-endian)
+- `set_speed` → `SET_PARAM(mode 6/8, param 1)`;`set_motor_state(true)` → `SET_MODE + ENABLE`;`emergency_stop` → `STOP`
+- `set_mode` 仅 5/6/7/8;`set_param` 走允许参数表,AI 锁定 6/13/24/42/51/52
+- 转速上限 6000 RPM;HELLO 后才允许 ENABLE;5s 无数据判超时
 - LLM 无条件发 `turn_end`(即使只有 tool_call,否则 inflight 锁死)
 - 单测中 `createSession` 生成唯一 id(计数器),避免同毫秒撞 id
 - `scopeStore.applyFrame` 在 buffer 数与通道数不匹配时重建并继续(不丢首帧)

@@ -79,5 +79,5 @@
 
 - 保持 `next/link` 跨页导航(丢串口连接);弹窗 / 列表 `data-testid` 与 e2e 选择器不变。
 - 无 emoji 作图标(用内联 SVG / unicode 文本);中文界面。
-- 状态 / 逻辑(`lib/**`:store / bus / modbus / llm)零改动 —— 仅布局与样式。
+- 状态 / 逻辑(`lib/**`:store / bus / aimotor / llm)零改动 —— 仅布局与样式。
 - 样式用 Tailwind v3 + 原始 CSS 类(见 `app/globals.css`);**不 @apply 自定义颜色**。新增颜色优先走 `--cx-*`(globals.css)或 Tailwind `colors`,别硬编码旧深蓝(`#0a1628` / `#00a8ff`)或旧青(`#2bb8a8`)。
