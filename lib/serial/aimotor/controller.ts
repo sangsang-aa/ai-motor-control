@@ -15,6 +15,7 @@ import {
   decodeSample,
   type Ack,
   type CommandId,
+  type ConfigRecord,
   type Model,
   type Packet,
   type Sample
@@ -55,6 +56,17 @@ interface PendingCommand {
 }
 
 let pending: PendingCommand | null = null
+
+let demo = false
+let demoTimer: ReturnType<typeof setInterval> | null = null
+let demoModelTimer: ReturnType<typeof setInterval> | null = null
+let demoMode = 6
+let demoEnabled = false
+let demoTarget = 1500
+let demoTick = 0
+let demoSpeed = 0
+let demoAngle = 0
+const demoParams = new Map<string, number>()
 
 function nextSeq(): number {
   seq = (seq + 1) & 0xffff
@@ -182,6 +194,7 @@ function startTimers(): void {
 }
 
 export async function connect(baudRate: number = AI_MOTOR_BAUD): Promise<{ ok: boolean; error?: string }> {
+  if (demo) stopDemo()
   if (connected || port) return { ok: true }
   if (!navigator.serial) return { ok: false, error: '当前浏览器不支持 Web Serial（请用 Chrome/Edge）' }
   let p: SerialPort
@@ -227,6 +240,10 @@ export async function connect(baudRate: number = AI_MOTOR_BAUD): Promise<{ ok: b
 }
 
 export async function disconnect(): Promise<void> {
+  if (demo) {
+    stopDemo()
+    return
+  }
   reading = false
   stopTimers()
   if (pending) {
@@ -294,6 +311,146 @@ export function getConfigValue(mode: number, param: number): number | undefined 
   return config.get(`${mode}:${param}`)
 }
 
+export async function requestConfig(): Promise<void> {
+  if (demo) {
+    emitDemoConfig()
+    return
+  }
+  await request(CMD.GET_CONFIG)
+}
+
+export function isDemo(): boolean {
+  return demo
+}
+
+function emitDemoConfig(): void {
+  const ids = [1, 2, 5, 6, 7, 8, 9, 10, 11, 12, 24, 13, 14, 40, 41, 42, 50, 51, 52]
+  const records: ConfigRecord[] = []
+  for (const id of ids) {
+    const def = getParam(id)
+    if (!def) continue
+    const mode = def.modes[0] ?? 0
+    records.push({ param: id, mode, integer: def.integer ? 1 : 0, value: demoParams.get(`${mode}:${id}`) ?? def.default })
+  }
+  aiMotorBus.emit({ type: 'ai_config', records })
+}
+
+function emitDemoModel(): void {
+  const model: Model = {
+    rs: 0.1943, ld: 89.6e-6, lq: 91.5e-6, ls: 90.55e-6, bandwidth: 500,
+    kp_d: 0.02346, ki_d: 0.001017, kp_q: 0.02396, ki_q: 0.001017, bus: 24,
+    pole_pairs: 5, status: 0, hfi_status: 4, select: 1, applied: 1,
+    save_status: 3, saved_valid: 1, ident_error: 0, revision: 1,
+    rx_frames: demoTick, crc_errors: 0, dropped_samples: 0, sci_errors: 0
+  }
+  aiMotorBus.emit({ type: 'ai_model', model })
+}
+
+function demoCommand(action: string, payload: Record<string, unknown>): string {
+  let result: string
+  if (action === 'set_speed') {
+    demoTarget = clampCommandRpm(Math.round(Number(payload.rpm) || 0))
+    result = `OK rpm=${demoTarget}`
+  } else if (action === 'set_motor_state') {
+    demoEnabled = !!payload.on
+    if (demoEnabled && ![6, 7, 8].includes(demoMode)) demoMode = 6
+    result = `OK motor_on=${demoEnabled ? 1 : 0} mode=${demoMode}`
+  } else if (action === 'set_mode') {
+    const mode = Number(payload.mode)
+    if (![5, 6, 7, 8].includes(mode)) throw new Error('模式只允许 5/6/7/8')
+    demoMode = mode
+    demoEnabled = false
+    result = `OK mode=${mode}`
+  } else if (action === 'emergency_stop') {
+    demoEnabled = false
+    result = 'OK emergency_stop'
+  } else if (action === 'clear_emergency_stop') {
+    demoEnabled = false
+    demoMode = 5
+    result = 'OK emergency_stop cleared'
+  } else if (action === 'set_param') {
+    const id = Number(payload.param)
+    const value = Number(payload.value)
+    const def = getParam(id)
+    if (!def) throw new Error(`未知参数 ID: ${id}`)
+    const rawMode = payload.mode === undefined ? undefined : Number(payload.mode)
+    const mode = rawMode !== undefined && [0, 6, 7, 8].includes(rawMode)
+      ? rawMode
+      : def.modes.includes(demoMode) ? demoMode : def.modes[0] ?? 0
+    const lookup = (pid: number) => demoParams.get(`${mode}:${pid}`) ?? getParam(pid)?.default
+    const check = validateParamValue(def, value, lookup)
+    if (!check.ok) throw new Error(check.reason)
+    demoParams.set(`${mode}:${id}`, value)
+    result = `OK ${def.key}=${value} (mode ${mode})`
+  } else {
+    const pid = action.match(/^write_pid_(\d+)$/)
+    if (!pid) throw new Error(`未知指令: ${action}`)
+    const id = Number(pid[1])
+    const def = getParam(id)
+    if (!def) throw new Error(`未知参数: ${id}`)
+    result = `OK ${def.key}=${Number(payload.value)}`
+  }
+  aiMotorBus.emit({ type: 'ai_executed', action, result })
+  return result
+}
+
+export function startDemo(): void {
+  if (demo) return
+  if (connected || port) void disconnect()
+  demo = true
+  connected = true
+  handshake = true
+  portName = 'DEMO'
+  baud = AI_MOTOR_BAUD
+  demoMode = 6
+  demoEnabled = false
+  demoTarget = 1500
+  demoTick = 0
+  demoSpeed = 0
+  demoAngle = 0
+  demoParams.clear()
+  lastSample = null
+  lastModel = null
+  emitStatus()
+  emitDemoConfig()
+  emitDemoModel()
+  demoTimer = setInterval(() => {
+    demoTick += 10
+    const target = demoEnabled ? demoTarget : 0
+    const delta = Math.max(-2000, Math.min(2000, (target - demoSpeed) * 0.01))
+    demoSpeed = Math.max(-10000, Math.min(10000, demoSpeed + delta))
+    demoAngle = (demoAngle + demoSpeed * 0.0004) % (Math.PI * 2)
+    const iq = demoEnabled ? 0.8 : 0
+    const iu = iq * Math.cos(demoAngle)
+    const iv = iq * Math.cos(demoAngle - 2.094)
+    const iw = -iu - iv
+    const sample: Sample = {
+      tick: demoTick, mode: demoMode,
+      stage: demoMode === 7 ? 9 : demoEnabled ? 3 : 0,
+      flags: demoEnabled ? 1 : 0, error: 0,
+      reference: target, speed: demoSpeed, id_ref: 0, id: 0,
+      iq_ref: iq, iq, iu, iv, iw, angle: demoAngle,
+      emf: Math.abs(demoSpeed) * 0.0008, if_speed: 0
+    }
+    lastSample = sample
+    aiMotorBus.emit({ type: 'ai_sample', sample })
+  }, 10)
+  demoModelTimer = setInterval(emitDemoModel, 100)
+}
+
+export function stopDemo(): void {
+  if (!demo) return
+  if (demoTimer) clearInterval(demoTimer)
+  if (demoModelTimer) clearInterval(demoModelTimer)
+  demoTimer = null
+  demoModelTimer = null
+  demo = false
+  connected = false
+  handshake = false
+  aiMotorBus.emit({ type: 'ai_closed' })
+  emitStatus()
+}
+
 export function getStatus(): string {
   if (!lastSample) return connected ? '已连接，等待遥测…' : '未连接'
   const s = lastSample
@@ -318,6 +475,17 @@ export function getStatus(): string {
 }
 
 export async function sendManualParam(id: number, value: number, mode = 7): Promise<string> {
+  if (demo) {
+    const def = getParam(id)
+    if (!def) throw new Error(`未知参数 ID: ${id}`)
+    const lookup = (pid: number) => demoParams.get(`${mode}:${pid}`) ?? getParam(pid)?.default
+    const check = validateParamValue(def, value, lookup)
+    if (!check.ok) throw new Error(check.reason)
+    demoParams.set(`${mode}:${id}`, value)
+    const result = `OK ${def.key}=${value} (mode ${mode})`
+    aiMotorBus.emit({ type: 'ai_executed', action: 'manual_set_param', result })
+    return result
+  }
   const def = getParam(id)
   if (!def) throw new Error(`未知参数 ID: ${id}`)
   const lookup = (pid: number) => getConfigValue(mode, pid) ?? getConfigValue(0, pid)
@@ -336,6 +504,7 @@ async function stopAndReport(action: string, result: string): Promise<string> { 
 }
 
 export async function sendCommand(action: string, payload: Record<string, unknown>): Promise<string> {
+  if (demo) return demoCommand(action, payload)
   if (action === 'set_speed') {
     const rpm = clampCommandRpm(Math.round(Number(payload.rpm) || 0))
     const mode = activeMode === 6 || activeMode === 8 ? activeMode : 6

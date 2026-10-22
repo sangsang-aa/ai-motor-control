@@ -2,7 +2,7 @@
 
 import { create } from 'zustand'
 import type { AiMotorEvent, MotorStatus } from '../types'
-import type { ConfigRecord, Model } from '../serial/aimotor/protocol'
+import type { ConfigRecord, Model, Sample } from '../serial/aimotor/protocol'
 import { useScopeStore } from './scopeStore'
 
 interface MotorState {
@@ -22,6 +22,7 @@ interface MotorState {
   iq: number
   model: Model | null
   config: ConfigRecord[]
+  lastSample: Sample | null
 
   applyEvent: (event: AiMotorEvent) => void
   updateStatus: (status: MotorStatus) => void
@@ -53,6 +54,7 @@ export const useMotorStore = create<MotorState>((set, get) => ({
   iq: 0,
   model: null,
   config: [],
+  lastSample: null,
 
   applyEvent: (event) => {
     if (event.type === 'ai_status') {
@@ -83,6 +85,7 @@ export const useMotorStore = create<MotorState>((set, get) => ({
         reference: s.reference,
         id: s.id,
         iq: s.iq,
+        lastSample: s,
         rpmHistory: [...state.rpmHistory, s.speed].slice(-MAX_HISTORY),
         currentHistory: [...state.currentHistory, s.iu].slice(-MAX_HISTORY),
         status: { ...state.status, rpm: s.speed, currentIa: s.iu }
