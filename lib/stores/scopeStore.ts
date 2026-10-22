@@ -32,7 +32,6 @@ interface SerialStatus {
   error: string | null
 }
 
-export const SAMPLE_TIME_S = 1 / 5000 // 板端电流波形上传采样周期:200 us
 /** AI-Motor v1 快速遥测周期(10ms → 100Hz) */
 export const AI_SAMPLE_TIME_S = 0.01
 export const DISPLAY_SAMPLES = 4000
@@ -161,10 +160,6 @@ export interface ScopeState {
   buffers: Float32Array[]
   // 已填充的样本数(0..N)
   filled: number
-  // 最近一个板端 5 kHz 波形批次号
-  waveBatch: number | null
-  // 上一批完整波形抵达前端的时间；用于保留真实 800ms 时间轴中的采集缺口
-  waveLastReceivedAt: number | null
 
   // 状态(来自 main process)
   status: SerialStatus
@@ -187,8 +182,6 @@ export interface ScopeState {
   setTs: (ts: number) => void
   setN: (n: number) => void
   setSpan: (span: number, unit: SpanUnit) => void
-  applyFrame: (payload: number[], nChannels: number) => void
-  enqueueWaveFrame: (samples: number[], rpm: number, batch: number) => void
   /** 配置 6 个 AI-Motor 通道(Iu/Speed/Id/Iq/EMF/I-F) */
   initAiChannels: () => void
   /** 追加一帧 100Hz 快速遥测 */
@@ -236,7 +229,7 @@ export const useScopeStore = create<ScopeState>((set, get) => ({
   ports: [],
   cfg: {
     port: '',
-    baud: 1_500_000,
+    baud: 115_200,
     bytesize: 8,
     parity: 'N',
     stopbits: 1,
@@ -258,14 +251,12 @@ export const useScopeStore = create<ScopeState>((set, get) => ({
   connected: false,
   paused: false,
   showHex: false,
-  ts: SAMPLE_TIME_S,
+  ts: AI_SAMPLE_TIME_S,
   n: DISPLAY_SAMPLES,
-  span: DISPLAY_SAMPLES * SAMPLE_TIME_S * 1e3,
+  span: DISPLAY_SAMPLES * AI_SAMPLE_TIME_S * 1e3,
   spanUnit: 'ms' as SpanUnit,
   buffers: emptyBuffers(DISPLAY_SAMPLES, PANEL_CHANNEL_SLOTS),
   filled: 0,
-  waveBatch: null,
-  waveLastReceivedAt: null,
   status: {
     isOpen: false,
     port: '',
@@ -297,9 +288,7 @@ export const useScopeStore = create<ScopeState>((set, get) => ({
       set({
         paused: false,
         buffers: emptyBuffers(state.n, state.channels.length),
-        filled: 0,
-        waveBatch: null,
-        waveLastReceivedAt: null
+        filled: 0
       })
       return
     }
@@ -324,7 +313,6 @@ export const useScopeStore = create<ScopeState>((set, get) => ({
       n: clipped,
       buffers: emptyBuffers(clipped, get().channels.length),
       filled: 0,
-      waveLastReceivedAt: null,
       span: t * factor,
       spanUnit: label
     })
@@ -345,85 +333,8 @@ export const useScopeStore = create<ScopeState>((set, get) => ({
       n,
       buffers: emptyBuffers(n, get().channels.length),
       filled: 0,
-      waveLastReceivedAt: null,
       span: actualT * f2,
       spanUnit: label
-    })
-  },
-
-  applyFrame: (payload, nChannels) => {
-    if (get().paused) return // 暂停时不更新 buffer
-    const n = get().n
-    const pairs = Math.floor(payload.length / nChannels)
-    if (pairs === 0) return
-    let buffers = get().buffers
-    // 如果缓冲长度与 channel 数不匹配,重建并继续(而非丢弃首帧)
-    if (buffers.length !== nChannels) {
-      buffers = emptyBuffers(n, nChannels)
-      set({ buffers, filled: 0 })
-    }
-    for (let c = 0; c < nChannels; c++) {
-      const buf = buffers[c]
-      if (pairs >= n) {
-        // 新数据比 buffer 还长:只保留最后 n 个
-        for (let i = 0; i < n; i++) {
-          buf[i] = payload[(pairs - n + i) * nChannels + c]
-        }
-      } else {
-        // 左移 + 追加
-        buf.copyWithin(0, pairs)
-        for (let i = 0; i < pairs; i++) {
-          buf[n - pairs + i] = payload[i * nChannels + c]
-        }
-      }
-    }
-    set({ filled: Math.min(n, get().filled + pairs) })
-  },
-
-  enqueueWaveFrame: (samples, rpm, batch) => {
-    if (get().paused || samples.length === 0) return
-
-    const state = get()
-    const capacity = state.n
-    const incomingCount = Math.min(capacity, samples.length)
-    const incomingStart = samples.length - incomingCount
-    const receivedAt = Date.now()
-    const elapsedSamples = state.waveLastReceivedAt === null
-      ? capacity
-      : Math.round((receivedAt - state.waveLastReceivedAt) / (SAMPLE_TIME_S * 1000))
-    // 固定 800ms 时间窗口：按真实到达间隔滚动。串口漏掉的区间保留为空白，
-    // 不把彼此不连续的 20ms 批次首尾拼接成伪连续波形。
-    const advanceCount = Math.min(capacity, Math.max(incomingCount, elapsedSamples))
-    const keptCount = capacity - advanceCount
-    const writeStart = capacity - incomingCount
-    const buffers = emptyBuffers(capacity, state.channels.length)
-    for (const buffer of buffers) buffer.fill(Number.NaN)
-
-    for (let channel = 0; channel < buffers.length; channel++) {
-      const previous = state.buffers[channel]
-      if (previous && keptCount > 0) {
-        buffers[channel].set(
-          previous.subarray(Math.max(0, previous.length - keptCount)),
-          0
-        )
-      }
-    }
-    for (let i = 0; i < incomingCount; i++) {
-      const sample = samples[incomingStart + i]
-      buffers[0][writeStart + i] = Number.isFinite(sample) ? sample : 0
-    }
-    if (buffers[1]) {
-      buffers[1].fill(Number.isFinite(rpm) ? rpm : 0, writeStart)
-    }
-
-    set({
-      buffers,
-      filled: capacity,
-      ts: SAMPLE_TIME_S,
-      span: capacity * SAMPLE_TIME_S * 1e3,
-      spanUnit: 'ms',
-      waveBatch: batch,
-      waveLastReceivedAt: receivedAt
     })
   },
 
@@ -558,8 +469,7 @@ export const useScopeStore = create<ScopeState>((set, get) => ({
     set({
       channels: next,
       buffers: emptyBuffers(n, nextLen),
-      filled: 0,
-      waveLastReceivedAt: null
+      filled: 0
     })
   },
 
@@ -656,8 +566,6 @@ export const useScopeStore = create<ScopeState>((set, get) => ({
     set({
       buffers: emptyBuffers(n, c),
       filled: 0,
-      waveBatch: null,
-      waveLastReceivedAt: null,
       hexFilled: 0,
       paused: false
     })

@@ -17,10 +17,7 @@ class Emitter<T> {
   }
 }
 
-import type { AiMotorEvent, BackendEvent, LlmEvent } from './types'
-
-/** 串口/电机后端事件(替代 Electron 的 motor:event 广播) */
-export const backendBus = new Emitter<BackendEvent>()
+import type { AiMotorEvent, LlmEvent } from './types'
 
 /** LLM 流式事件(替代 Electron 的 llm:event 广播) */
 export const llmBus = new Emitter<LlmEvent>()
@@ -28,5 +25,5 @@ export const llmBus = new Emitter<LlmEvent>()
 /** 原始串口字节(示波器 HEX 视图用) */
 export const hexBus = new Emitter<Uint8Array>()
 
-/** AI-Motor v1 主串口事件(替代 Modbus backendBus) */
+/** AI-Motor v1 主串口事件 */
 export const aiMotorBus = new Emitter<AiMotorEvent>()

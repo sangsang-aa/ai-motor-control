@@ -56,34 +56,7 @@ export interface LlmError { type: 'error'; message: string }
 export interface LlmInterrupted { type: 'interrupted' }
 export type LlmEvent = LlmStreamDelta | LlmToolCall | LlmTurnEnd | LlmError | LlmInterrupted
 
-// ── 后端(串口控制器)事件 — 与原 pythonBridge 广播的 motor:event 一致 ──
-export interface BackendStarted { type: 'started'; version: string }
-export interface SerialStatus { type: 'serial_status'; connected: boolean; port: string; baudRate?: number }
-export interface TelemetryData {
-  type: 'telemetry'
-  rpm: number
-  current: number
-  seriesRpm: number[]
-  seriesIa: number[]
-  channels?: Record<string, number[]>
-}
-export interface BackendError { type: 'error'; message: string }
-export interface BackendInterrupted { type: 'interrupted' }
-export interface BackendExecuted { type: 'executed'; action: string; result: string }
-export interface BackendPong { type: 'pong' }
-/** 5kHz 电流波形批次(下位机攒 100 点,上位机分两段读到) */
-export interface WaveFrame { type: 'wave_frame'; batch: number; samples: number[] }
-export type BackendEvent =
-  | BackendStarted
-  | SerialStatus
-  | TelemetryData
-  | BackendError
-  | BackendInterrupted
-  | BackendExecuted
-  | BackendPong
-  | WaveFrame
-
-// ── AI-Motor v1 主串口事件(替代 Modbus backendBus)──────────────
+// ── AI-Motor v1 主串口事件 ────────────────────────────────────
 export interface AiStatusEvent { type: 'ai_status'; connected: boolean; port: string; baudRate: number }
 export interface AiSampleEvent { type: 'ai_sample'; sample: Sample }
 export interface AiModelEvent { type: 'ai_model'; model: Model }

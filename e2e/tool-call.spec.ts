@@ -1,7 +1,7 @@
 /**
  * 测试点 3:tool 正常 calling。
  * mock LLM 返回纯 tool_call → 断言 ConfirmCard 出现、确认/忽略流程完整。
- * 用例 2 注入 Modbus 从站,验证确认后写入的 Modbus 请求帧(写单寄存器 0x06)。
+ * 用例 2 注入 AI-Motor 从站,验证确认后下发的 SET_PARAM 帧。
  */
 import { test, expect, Page } from '@playwright/test'
 import { fakeAiMotorSerial, getAiWrites, decodeAiCommands } from './mockAiMotorSerial'

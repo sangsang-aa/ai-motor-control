@@ -1,4 +1,4 @@
-// 聊天消息面板 — 从 Electron 版迁移;指令执行改为 motorController.sendCommand
+// 聊天消息面板 — 从 Electron 版迁移;指令执行改为 aimotor/controller.sendCommand
 
 'use client'
 

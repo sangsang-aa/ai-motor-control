@@ -1,5 +1,5 @@
 // 急停按钮 — inline 红色胶囊(集成到 Composer 发送钮旁),不再 fixed。
-// 指令执行改为 motorController.sendCommand。
+// 指令执行改为 aimotor/controller.sendCommand。
 
 'use client'
 
