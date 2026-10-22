@@ -7,6 +7,8 @@ export interface AiMotorMockOptions {
   dropFirstAck?: boolean
   /** 连续丢弃 N 个 HELLO ACK(验证握手失败/重连) */
   noHelloAckCount?: number
+  /** mode7 模拟失败(重复性不合格) */
+  mode7Error?: boolean
   /** 覆盖常用 SAMPLE 字段 */
   sample?: { reference?: number; speed?: number; id?: number; iq?: number; iu?: number }
 }
@@ -104,7 +106,11 @@ export function fakeAiMotorSerial(options: AiMotorMockOptions = {}): string {
         if (opts.silent || sampleTimer) return;
         sampleTimer = setInterval(() => {
           tick += 10;
-          send(sampleFrame(seq++, tick, window.__aiMode, 3, window.__aiEnabled ? 1 : 0, 0));
+          const mode = window.__aiMode;
+          const enabled = window.__aiEnabled;
+          const stage = mode === 7 ? (enabled ? (opts.mode7Error ? 10 : 9) : 0) : 3;
+          const error = mode === 7 && enabled && opts.mode7Error ? 9 : 0;
+          send(sampleFrame(seq++, tick, mode, stage, enabled ? 1 : 0, error));
         }, 10);
         modelTimer = setInterval(() => send(modelFrame(seq++)), 100);
       };

@@ -1,12 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { fakeParamEstSerial, getPeWrites } from './mockParamEstSerial'
-
-function decodeWrites(writes: number[][]) {
-  return writes.map((w) => {
-    const dv = new DataView(Uint8Array.from(w).buffer)
-    return { cmd: dv.getFloat32(0, true), val: dv.getFloat32(4, true) }
-  })
-}
+import { fakeAiMotorSerial, getAiWrites, decodeAiCommands } from './mockAiMotorSerial'
 
 test('侧栏可进入参数辨识', async ({ page }) => {
   await page.goto('/')
@@ -16,69 +9,34 @@ test('侧栏可进入参数辨识', async ({ page }) => {
   await expect(page.getByText('PMSM 参数辨识').first()).toBeVisible()
 })
 
-test('连接 → 发命令 → 采集 → 空闲超时 → 辨识 → 显示结果', async ({ page }) => {
-  await page.addInitScript(fakeParamEstSerial())
+test('mode7:连接 → 下发配置 → 开始 → 显示已应用模型', async ({ page }) => {
+  await page.addInitScript(fakeAiMotorSerial())
   await page.goto('/param-est')
+  await page.getByTestId('pe-connect').click()
+  await expect(page.getByText('已连接').first()).toBeVisible()
 
-  await page.getByRole('button', { name: '连接串口' }).click()
-  await expect(page.getByText('已连接')).toBeVisible()
+  await page.getByTestId('pe-bus').fill('24')
+  await page.getByTestId('pe-pole-pairs').fill('5')
+  await page.getByTestId('pe-max-current').fill('5')
+  await page.getByTestId('pe-start').click()
 
-  await page.getByTestId('test-1').click()
-  await page.getByTestId('btn-start').click()
+  await expect(page.getByTestId('res-Rs')).toHaveText('0.1943')
+  await expect(page.getByTestId('res-Ld')).toHaveText('89.60')
+  await expect(page.getByTestId('pe-stage')).toContainText('完成')
 
-  // 空闲超时后出结果:取 float1(=0.13),而非 float2(=9.99)
-  await expect(page.getByTestId('res-Rs')).toHaveText(/0\.13/, { timeout: 8000 })
-
-  // 下发过控制帧(命令 22)且位域正确:bit0=启停, bit4-7=测试号(Rs=1)
-  const ctrl = decodeWrites(await getPeWrites(page)).find((w) => w.cmd === 22)
-  expect(ctrl).toBeTruthy()
-  expect(Math.trunc(ctrl!.val) & 0x01).toBe(1)
-  expect((Math.trunc(ctrl!.val) >> 4) & 0x0f).toBe(1)
+  const cmds = decodeAiCommands(await getAiWrites(page))
+  expect(cmds.some((c) => c.cmd === 3 && c.param === 40 && c.mode === 7 && c.value === 24)).toBe(true)
+  expect(cmds.some((c) => c.cmd === 3 && c.param === 41 && c.mode === 7 && c.value === 5)).toBe(true)
+  expect(cmds.some((c) => c.cmd === 3 && c.param === 42 && c.mode === 7 && c.value === 5)).toBe(true)
+  expect(cmds.some((c) => c.cmd === 2 && c.mode === 7)).toBe(true)
+  expect(cmds.some((c) => c.cmd === 4 && c.mode === 7)).toBe(true)
 })
 
-test('配置下发:命令 1..21 顺序正确', async ({ page }) => {
-  await page.addInitScript(fakeParamEstSerial())
+test('mode7 失败显示具体原因', async ({ page }) => {
+  await page.addInitScript(fakeAiMotorSerial({ mode7Error: true }))
   await page.goto('/param-est')
-  await page.getByRole('button', { name: '连接串口' }).click()
-  await expect(page.getByText('已连接')).toBeVisible()
-
-  await page.getByTestId('cfg-send').click()
-  await expect.poll(async () => (await getPeWrites(page)).length, { timeout: 5000 }).toBeGreaterThanOrEqual(21)
-
-  const cmds = decodeWrites(await getPeWrites(page)).map((w) => w.cmd)
-  expect(cmds.slice(0, 21)).toEqual(Array.from({ length: 21 }, (_, i) => i + 1))
-})
-
-test('采集波形渲染(通道 A/B)', async ({ page }) => {
-  await page.addInitScript(fakeParamEstSerial())
-  await page.goto('/param-est')
-  await page.getByRole('button', { name: '连接串口' }).click()
-  await page.getByTestId('test-1').click()
-  await page.getByTestId('btn-start').click()
-
-  await expect(page.getByTestId('res-Rs')).toHaveText(/0\.13/, { timeout: 8000 })
-  await expect(page.getByTestId('wave-scope')).toBeVisible()
-  expect(await page.locator('[data-testid="wave-scope"] path').count()).toBeGreaterThanOrEqual(2)
-})
-
-test('断开连接回到未连接', async ({ page }) => {
-  await page.addInitScript(fakeParamEstSerial())
-  await page.goto('/param-est')
-  await page.getByRole('button', { name: '连接串口' }).click()
-  await expect(page.getByText('已连接')).toBeVisible()
-
-  await page.getByRole('button', { name: '断开' }).click()
-  await expect(page.getByText('未连接')).toBeVisible()
-  await expect(page.getByRole('button', { name: '连接串口' })).toBeVisible()
-})
-
-test('数据不可用 → 抛弃并显示「出现数据错误」', async ({ page }) => {
-  await page.addInitScript(fakeParamEstSerial({ zero: true }))
-  await page.goto('/param-est')
-
-  await page.getByRole('button', { name: '连接串口' }).click()
-  await page.getByTestId('test-1').click()
-  await page.getByTestId('btn-start').click()
-
-  await expect(page.getByTestId('data-error')).toHaveText('出现数据错误', { timeout: 8000 })
+  await page.getByTestId('pe-connect').click()
+  await expect(page.getByText('已连接').first()).toBeVisible()
+  await page.getByTestId('pe-start').click()
+  await expect(page.getByTestId('pe-error')).toContainText('重复性不合格')
 })

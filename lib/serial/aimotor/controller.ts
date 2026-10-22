@@ -19,7 +19,7 @@ import {
   type Packet,
   type Sample
 } from './protocol'
-import { clampCommandRpm, getParam, validateAiParam } from './params'
+import { clampCommandRpm, getParam, validateAiParam, validateParamValue } from './params'
 
 const ACK_TIMEOUT_MS = 800
 const HELLO_TIMEOUT_MS = 1200
@@ -317,8 +317,18 @@ export function getStatus(): string {
   return parts.join(' ')
 }
 
-async function stopAndReport(action: string, result: string): Promise<string> {
-  const ack = await request(CMD.STOP)
+export async function sendManualParam(id: number, value: number, mode = 7): Promise<string> {
+  const def = getParam(id)
+  if (!def) throw new Error(`未知参数 ID: ${id}`)
+  const lookup = (pid: number) => getConfigValue(mode, pid) ?? getConfigValue(0, pid)
+  const check = validateParamValue(def, value, lookup)
+  if (!check.ok) throw new Error(check.reason)
+  const ack = await request(CMD.SET_PARAM, mode, id, value)
+  if (ack.status !== 0) throw new Error(ACK_STATUS[ack.status] ?? `status ${ack.status}`)
+  return `OK ${def.key}=${value} (mode ${mode})`
+}
+
+async function stopAndReport(action: string, result: string): Promise<string> {  const ack = await request(CMD.STOP)
   if (ack.status !== 0) throw new Error(ACK_STATUS[ack.status] ?? `status ${ack.status}`)
   activeMode = 5
   aiMotorBus.emit({ type: 'ai_executed', action, result })
@@ -338,7 +348,7 @@ export async function sendCommand(action: string, payload: Record<string, unknow
 
   if (action === 'set_motor_state') {
     if (!payload.on) return stopAndReport(action, 'OK motor_on=0')
-    const mode = activeMode === 8 ? 8 : 6
+    const mode = activeMode === 7 || activeMode === 8 ? activeMode : 6
     let ack = await request(CMD.SET_MODE, mode)
     if (ack.status !== 0) throw new Error(ACK_STATUS[ack.status] ?? `status ${ack.status}`)
     ack = await request(CMD.ENABLE, mode)

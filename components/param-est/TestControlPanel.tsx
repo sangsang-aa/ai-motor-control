@@ -1,84 +1,97 @@
 'use client'
 
-import React from 'react'
-import { useParamEstStore } from '@/lib/stores/paramEstStore'
-import { sendControl, startAcquisition } from '@/lib/serial/paramEstController'
-import { PM_TEST_LABEL, type PmTestId } from '@/lib/types'
+import React, { useState } from 'react'
+import { useMotorStore } from '@/lib/stores/motorStore'
+import { sendCommand, sendManualParam } from '@/lib/serial/aimotor/controller'
+import { getParam } from '@/lib/serial/aimotor/params'
+import { IDENT_ERROR_LABEL, IDENT_STAGE_LABEL } from '@/lib/serial/aimotor/protocol'
 
-const TESTS: PmTestId[] = [0, 1, 2, 3, 4]
+const BUS_DEFAULT = getParam(40)?.default ?? 24
+const POLES_DEFAULT = getParam(41)?.default ?? 5
+const MAX_CURRENT_DEFAULT = getParam(42)?.default ?? 5
 
 export default function TestControlPanel() {
-  const connected = useParamEstStore((s) => s.connected)
-  const control = useParamEstStore((s) => s.control)
-  const acquiring = useParamEstStore((s) => s.acquiring)
-  const setControl = useParamEstStore((s) => s.setControl)
-  const setTest = useParamEstStore((s) => s.setTest)
-  const beginAcquisition = useParamEstStore((s) => s.beginAcquisition)
+  const connected = useMotorStore((s) => s.connected)
+  const mode = useMotorStore((s) => s.mode)
+  const stage = useMotorStore((s) => s.stage)
+  const errorCode = useMotorStore((s) => s.errorCode)
+  const [bus, setBus] = useState(String(BUS_DEFAULT))
+  const [polePairs, setPolePairs] = useState(String(POLES_DEFAULT))
+  const [maxCurrent, setMaxCurrent] = useState(String(MAX_CURRENT_DEFAULT))
+  const [busy, setBusy] = useState(false)
+
+  async function sendConfig() {
+    await sendManualParam(40, Number(bus), 7)
+    await sendManualParam(41, Number(polePairs), 7)
+    await sendManualParam(42, Number(maxCurrent), 7)
+  }
+
+  async function onSendConfig() {
+    setBusy(true)
+    try {
+      await sendConfig()
+    } catch (e) {
+      alert(`下发配置失败: ${e}`)
+    }
+    setBusy(false)
+  }
 
   async function onStart() {
-    const w = { ...useParamEstStore.getState().control, enable: true }
-    setControl({ enable: true })
-    startAcquisition()
-    beginAcquisition()
-    await sendControl(w)
+    setBusy(true)
+    try {
+      await sendConfig()
+      await sendCommand('set_mode', { mode: 7 })
+      await sendCommand('set_motor_state', { on: true })
+    } catch (e) {
+      alert(`启动辨识失败: ${e}`)
+    }
+    setBusy(false)
   }
 
   async function onStop() {
-    const w = { ...useParamEstStore.getState().control, enable: false }
-    setControl({ enable: false })
-    await sendControl(w)
+    setBusy(true)
+    try {
+      await sendCommand('set_motor_state', { on: false })
+    } catch (e) {
+      alert(`停止失败: ${e}`)
+    }
+    setBusy(false)
   }
-
-  const seg = (active: boolean) => ({
-    padding: '6px 14px',
-    borderRadius: 8,
-    fontSize: 12.5,
-    cursor: 'pointer',
-    border: '1px solid ' + (active ? 'var(--cx-border-2)' : 'transparent'),
-    background: active ? 'var(--cx-surface-2)' : 'transparent',
-    color: active ? 'var(--cx-text)' : 'var(--cx-muted)'
-  })
 
   return (
     <section className="cx-panel" style={{ padding: 16 }}>
-      <div className="cx-panel-title">测试控制</div>
+      <div className="cx-panel-title">mode7 辨识配置</div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 12, color: 'var(--cx-muted)' }}>测试方法</span>
-          <div style={{ display: 'flex', gap: 4 }}>
-            <span data-testid="method-manual" style={seg(!control.auto)} onClick={() => setControl({ auto: false })}>
-              手动
-            </span>
-            <span data-testid="method-auto" style={seg(control.auto)} onClick={() => setControl({ auto: true })}>
-              自动
-            </span>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 12, color: 'var(--cx-muted)' }}>选择测试</span>
-          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-            {TESTS.map((t) => (
-              <span key={t} data-testid={`test-${t}`} style={seg(control.test === t)} onClick={() => setTest(t)}>
-                {PM_TEST_LABEL[t]}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
-          <button className="cx-btn cx-btn-primary" onClick={onStart} disabled={!connected || acquiring} data-testid="btn-start">
-            开始采集
-          </button>
-          <button className="cx-btn cx-btn-danger" onClick={onStop} disabled={!connected} data-testid="btn-stop">
-            停止
-          </button>
-        </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <span style={{ fontSize: 11, color: 'var(--cx-subtle)' }}>辨识母线电压 (V)</span>
+          <input className="input-base" data-testid="pe-bus" type="number" value={bus} onChange={(e) => setBus(e.target.value)} disabled={busy} />
+        </label>
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <span style={{ fontSize: 11, color: 'var(--cx-subtle)' }}>极对数</span>
+          <input className="input-base" data-testid="pe-pole-pairs" type="number" value={polePairs} onChange={(e) => setPolePairs(e.target.value)} disabled={busy} />
+        </label>
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <span style={{ fontSize: 11, color: 'var(--cx-subtle)' }}>最大测试相电流峰值 (A)</span>
+          <input className="input-base" data-testid="pe-max-current" type="number" value={maxCurrent} onChange={(e) => setMaxCurrent(e.target.value)} disabled={busy} />
+        </label>
       </div>
 
-      <div style={{ marginTop: 12, fontSize: 12, color: 'var(--cx-subtle)' }}>
-        当前测试：{PM_TEST_LABEL[control.test]} · {control.auto ? '自动' : '手动'} · {control.enable ? '已启动' : '未启动'}
+      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+        <button className="cx-btn cx-btn-ghost" onClick={onSendConfig} disabled={!connected || busy} data-testid="pe-send-config">
+          下发配置
+        </button>
+        <button className="cx-btn cx-btn-primary" onClick={onStart} disabled={!connected || busy} data-testid="pe-start">
+          开始辨识
+        </button>
+        <button className="cx-btn cx-btn-danger" onClick={onStop} disabled={!connected || busy} data-testid="pe-stop">
+          停止
+        </button>
+      </div>
+
+      <div data-testid="pe-stage" style={{ marginTop: 12, fontSize: 12, color: 'var(--cx-subtle)' }}>
+        状态：{mode === 7 ? `mode7 · ${IDENT_STAGE_LABEL[stage] ?? stage}` : `mode ${mode} · stage ${stage}`}
+        {errorCode ? ` · ${IDENT_ERROR_LABEL[errorCode] ?? `err ${errorCode}`}` : ''}
       </div>
     </section>
   )

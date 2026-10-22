@@ -18,6 +18,8 @@ interface MotorState {
   flags: number
   errorCode: number
   reference: number
+  id: number
+  iq: number
   model: Model | null
   config: ConfigRecord[]
 
@@ -47,6 +49,8 @@ export const useMotorStore = create<MotorState>((set, get) => ({
   flags: 0,
   errorCode: 0,
   reference: 0,
+  id: 0,
+  iq: 0,
   model: null,
   config: [],
 
@@ -77,6 +81,8 @@ export const useMotorStore = create<MotorState>((set, get) => ({
         flags: s.flags,
         errorCode: s.error,
         reference: s.reference,
+        id: s.id,
+        iq: s.iq,
         rpmHistory: [...state.rpmHistory, s.speed].slice(-MAX_HISTORY),
         currentHistory: [...state.currentHistory, s.iu].slice(-MAX_HISTORY),
         status: { ...state.status, rpm: s.speed, currentIa: s.iu }
