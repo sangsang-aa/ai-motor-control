@@ -4,7 +4,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { sendCommand } from '@/lib/serial/motorController'
+import { sendCommand } from '@/lib/serial/aimotor/controller'
 
 export const EStopButton: React.FC<{ onEStop?: () => void }> = ({ onEStop }) => {
   const [busy, setBusy] = useState(false)

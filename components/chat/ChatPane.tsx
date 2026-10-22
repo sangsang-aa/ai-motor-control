@@ -8,7 +8,7 @@ import { useMotorStore } from '@/lib/stores/motorStore'
 import { ConfirmCard } from './ConfirmCard'
 import { consumePendingToolCall } from './ChatApp'
 import { useCommandLock } from '@/lib/stores/commandLockStore'
-import { sendCommand } from '@/lib/serial/motorController'
+import { sendCommand } from '@/lib/serial/aimotor/controller'
 import { COMMAND_CONFIRM_TIMEOUT } from '@/lib/config'
 import { useLangStore, t } from '@/lib/i18n'
 

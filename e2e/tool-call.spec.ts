@@ -4,7 +4,7 @@
  * 用例 2 注入 Modbus 从站,验证确认后写入的 Modbus 请求帧(写单寄存器 0x06)。
  */
 import { test, expect, Page } from '@playwright/test'
-import { fakeSerialInitScript, getSerialWrites } from './mockSerial'
+import { fakeAiMotorSerial, getAiWrites, decodeAiCommands } from './mockAiMotorSerial'
 
 const SSE_TOOL = [
   'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"name":"set_speed","arguments":""}}]}}]}\n\n',
@@ -31,8 +31,8 @@ test('tool_call 触发 ConfirmCard,可忽略(lock 解除)', async ({ page }) => 
   await expect(page.locator('.cfm-card')).toHaveCount(0)
 })
 
-test('tool_call 确认后写入 Modbus 写单寄存器(需 fake serial)', async ({ page }) => {
-  await page.addInitScript(fakeSerialInitScript())
+test('tool_call 确认后下发 AI-Motor SET_PARAM(需 fake serial)', async ({ page }) => {
+  await page.addInitScript(fakeAiMotorSerial())
   await mockLlm(page, SSE_TOOL)
   await page.goto('/')
   await page.waitForSelector('textarea')
@@ -43,13 +43,9 @@ test('tool_call 确认后写入 Modbus 写单寄存器(需 fake serial)', async 
   const card = page.locator('.cfm-card')
   await expect(card).toBeVisible()
   await card.locator('button', { hasText: '确认执行' }).click()
-  // 等待写入
   await page.waitForTimeout(400)
-  const writes = await getSerialWrites(page)
-  expect(writes.length).toBeGreaterThanOrEqual(1)
-  // 找一个写单寄存器(0x06)到 SPEED_SETPOINT(0x0000)值 3000 的帧
-  const speedWrite = writes.find((w) => w[1] === 0x06 && (w[2] << 8 | w[3]) === 0x0000 && (w[4] << 8 | w[5]) === 3000)
+  const cmds = decodeAiCommands(await getAiWrites(page))
+  const speedWrite = cmds.find((c) => c.cmd === 3 && c.mode === 6 && c.param === 1 && c.value === 3000)
   expect(speedWrite).toBeTruthy()
-  // 结果气泡
   await expect(page.locator('.msg-bbl.asst')).toContainText('OK rpm=3000')
 })

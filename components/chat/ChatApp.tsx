@@ -14,7 +14,7 @@ import { SearchDialog } from './SearchDialog'
 import { useSessionStore } from '@/lib/stores/sessionStore'
 import { useMotorStore } from '@/lib/stores/motorStore'
 import { useCommandLock } from '@/lib/stores/commandLockStore'
-import { backendBus, llmBus } from '@/lib/bus'
+import { aiMotorBus, llmBus } from '@/lib/bus'
 import { sendMessage, abort as abortLlm } from '@/lib/llm/llmClient'
 import { buildKnowledgePayload } from '@/lib/knowledge/context'
 import { useLangStore } from '@/lib/i18n'
@@ -33,7 +33,7 @@ export const ChatApp: React.FC = () => {
   const [showSearch, setShowSearch] = useState(false)
 
   useEffect(() => {
-    const u1 = backendBus.on((e) => { applyEvent(e); if (e.type === 'executed') lock.unlock() })
+    const u1 = aiMotorBus.on((e) => { applyEvent(e); if (e.type === 'ai_executed') lock.unlock() })
     const u2 = llmBus.on((e) => {
       if (e.type === 'tool_call') {
         const store = useSessionStore.getState()
@@ -45,7 +45,7 @@ export const ChatApp: React.FC = () => {
         }
         if (lock.status !== 'idle') { store.applyLlmEvent({ type: 'text', content: '当前存在未确认的硬件操作，请等待处理' }); return }
         if (e.toolName === 'get_status') {
-          import('@/lib/serial/motorController').then((m) => { const r = m.getStatus(); store.applyLlmEvent({ type: 'text', content: `>> ${r}` }) })
+          import('@/lib/serial/aimotor/controller').then((m) => { const r = m.getStatus(); store.applyLlmEvent({ type: 'text', content: `>> ${r}` }) })
         } else {
           lock.lock(`call_${e.toolName}_${Date.now()}`)
           setPendingToolCall(e.toolName, e.arguments)

@@ -9,7 +9,7 @@ import { EStopButton } from './EStopButton'
 import { ConversationSettingsPanel } from './ConversationSettingsPanel'
 import { KnowledgePicker } from '@/components/knowledge/KnowledgePicker'
 import { useSessionStore } from '@/lib/stores/sessionStore'
-import { sendCommand } from '@/lib/serial/motorController'
+import { sendCommand } from '@/lib/serial/aimotor/controller'
 
 interface Props {
   onSend: (text: string) => void

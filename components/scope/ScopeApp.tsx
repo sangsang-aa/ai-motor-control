@@ -11,35 +11,30 @@ import HexToggle from './HexToggle'
 import HexView from './HexView'
 import { useScopeStore, autoColor } from '@/lib/stores/scopeStore'
 import { useMotorStore } from '@/lib/stores/motorStore'
-import { backendBus, hexBus } from '@/lib/bus'
+import { aiMotorBus, hexBus } from '@/lib/bus'
 import { useLangStore, t } from '@/lib/i18n'
 
 export const ScopeApp: React.FC = () => {
   const lang = useLangStore((s) => s.lang)
   const { status, connected, applyEvent } = useMotorStore()
   const appendHex = useScopeStore((s) => s.appendHex)
+  const initAiChannels = useScopeStore((s) => s.initAiChannels)
+  const appendAiSample = useScopeStore((s) => s.appendAiSample)
   const [panelW, setPanelW] = useState(280)
   const showHex = useScopeStore((s) => s.showHex)
   const channels = useScopeStore((s) => s.channels)
-  const buffers = useScopeStore((s) => s.buffers)
-  const n = useScopeStore((s) => s.n)
-  const waveBatch = useScopeStore((s) => s.waveBatch)
   const dragging = useRef(false)
-  const latestCurrent = waveBatch === null
-    ? status.currentIa
-    : buffers[0]?.[n - 1] ?? status.currentIa
+  const latestCurrent = status.currentIa
 
   useEffect(() => {
-    const u1 = backendBus.on(applyEvent)
+    const u1 = aiMotorBus.on((e) => {
+      applyEvent(e)
+      if (e.type === 'ai_sample') appendAiSample(e.sample)
+    })
     const u2 = hexBus.on((bytes) => appendHex(bytes))
+    initAiChannels()
     return () => { u1(); u2() }
-  }, [applyEvent, appendHex])
-
-  useEffect(() => {
-    const s = useScopeStore.getState()
-    s.setChannelLabel(0, 'Ia (A)')
-    s.setChannelLabel(1, 'Speed (RPM)')
-  }, [])
+  }, [applyEvent, appendHex, initAiChannels, appendAiSample])
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
@@ -76,7 +71,7 @@ export const ScopeApp: React.FC = () => {
             <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--cx-text)', marginRight: 4 }}>{t(lang, 'realtime')}</span>
             <span data-testid="realtime-current" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--cx-muted)' }}>
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: channels[0]?.colorOverride || autoColor(0) }} />
-              <span>Ia</span>
+              <span>Iu</span>
               <b style={{ color: 'var(--cx-text)', fontFamily: "'JetBrains Mono',Consolas,monospace" }}>{latestCurrent.toFixed(3)}</b>
               <span style={{ fontSize: 10, color: 'var(--cx-subtle)' }}>A</span>
             </span>
