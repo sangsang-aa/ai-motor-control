@@ -37,12 +37,14 @@ Next.js (App Router, 纯客户端渲染)
 │   ├── page.tsx          → ChatApp(聊天主页, /)
 │   ├── scope/page.tsx    → ScopeApp(示波器, /scope)
 │   ├── knowledge/page.tsx→ KnowledgeApp(知识库, /knowledge)
-│   ├── param-est/page.tsx→ ParamEstApp(PMSM 参数辨识, /param-est;独立 SCI)
+│   ├── param-est/page.tsx→ ParamEstApp(PMSM 参数辨识 mode7, /param-est)
+│   ├── control/page.tsx  → ControlApp(手动控制 + 参数调控, /control)
 │   └── api/llm/route.ts  → LLM 代理(唯一服务端代码)
 ├── components/chat/      → ChatApp/Topbar/Sidebar/ChatPane/Composer/ConfirmCard/EStop/横幅 + SettingsPanel/SearchDialog/ConversationSettingsPanel
 ├── components/knowledge/ → KnowledgeApp(建库/上传)/KnowledgePicker(投送选择)
 ├── components/scope/     → ScopeApp(带"实时数据"区)/ScopeChart/ChannelPanel/HexView/Pause/HexToggle
 ├── components/param-est/ → ParamEstApp/ConnectionBar/TestControlPanel/EstimatedParamsPanel/DebugScope(mode7)
+├── components/control/   → ControlApp/ControlBar/SpeedPanel/ParamGroups/LivePanel/ModelPanel/RecordingPanel
 └── lib/
     ├── types.ts          → 跨层类型(LlmEvent/Session/Message/MotorStatus/KnowledgePayload + AiMotorEvent)
     ├── bus.ts            → 事件总线:llmBus(LLM)/hexBus(原始字节)/aiMotorBus(主串口)
@@ -52,6 +54,7 @@ Next.js (App Router, 纯客户端渲染)
     ├── serial/aimotor/protocol.ts   → AI-Motor v1 帧/CRC/编解码(纯逻辑)
     ├── serial/aimotor/params.ts     → 允许参数表 + 安全锁 + 范围校验
     ├── serial/aimotor/controller.ts → Web Serial + HELLO/心跳/ACK 重试/STOP/100Hz 遥测
+    ├── serial/aimotor/control.ts    → 参数分组 / paramMode / 安全标记
     ├── llm/llmClient.ts  → SSE 解析 + abort(浏览器端)
     ├── llm/tools.ts      → 工具定义 TOOLS + 系统提示词 SYSTEM_PROMPT(前后端共用)
     ├── knowledge/db.ts   → 知识库 IndexedDB(原生,无依赖);context.ts 汇总+预算;extract.ts pdfjs 文本/图片
@@ -68,6 +71,7 @@ Next.js (App Router, 纯客户端渲染)
 - **命令锁链**:`tool_call` → `lock.lock()` → `setPendingToolCall` → ChatPane `ConfirmCard` → 确认 → `aimotor/controller.sendCommand` → `ai_executed` 事件 → `lock.unlock()`。30s 超时自动取消。`get_status` 免确认自动执行。`set_motor_state`/`set_mode`/`set_param` 走 AI-Motor v1;AI 禁止修改安全锁定参数(6/13/24/42/51/52)。
 - **示波器**:100Hz `SAMPLE` → `scopeStore.appendAiSample`(6 通道:Iu/Speed/Id/Iq/EMF/I-F)→ `ScopeChart`(SVG rAF)。原始字节 → `hexBus` → `appendHex`。
 - **参数辨识**:`/param-est` 复用同一 AI-Motor 连接 → mode7(母线/极对数/最大测试电流 → `SET_MODE 7` → `ENABLE` → stage/error → 已应用模型 Rs/Ld/Lq/Ls);人工写参数走 `sendManualParam`,不受 AI 锁限制。
+- **手动控制**:`/control` → ControlBar(mode5/6/7/8、ENABLE/STOP)/SpeedPanel/ParamGroups(30 条参数按组调控)→ `sendCommand`/`sendManualParam`;CSV 记录订阅 `aiMotorBus`;演示模式由 controller 本地产生 SAMPLE/MODEL,不碰硬件。
 - **持久化**:会话存 localStorage(`mototune.sessions`),示波器通道配置存 localStorage(`scope.*`),设置存 localStorage(`mototune.settings`);**知识库文件存 IndexedDB**(`mototune.knowledge`,`kb`+`kbFile` store,不入 localStorage)。
 - **设置响应式**:`useSettingsStore`(zustand)是设置唯一响应式源;`saveSettings`/`loadSettings` 都会写它。**组件订阅 store 而非直接读 localStorage**——否则改模型/供应商不刷新(曾 bug:Topbar 模型名残留 qwen)。
 - **空消息防御**:`sessionStore.applyLlmEvent` 对空 content 的 text 不新建消息;`ChatApp` tool_call 时不再追加空 text——避免"空气泡"。新增消息给 content 若为空串直接跳过。

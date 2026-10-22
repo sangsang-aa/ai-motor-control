@@ -114,6 +114,19 @@ npm test                 # 单元测试
 | 失败原因 | mode7 error → 显示「重复性不合格」 |
 | 协议/参数单测 | 帧/CRC/解码、参数范围/安全锁、store 映射 |
 
+### 8. 手动控制与参数调控(/control)
+
+**文件**: `e2e/control.spec.ts`、`unit/aimotorControl.spec.ts`
+
+| 用例 | 验收标准 |
+|---|---|
+| 侧栏入口 + 连接 | `/control` 可进入;115200 连接显示已连接 |
+| 模式/启停/调速 | `SET_MODE(6)` + `ENABLE`;`SET_PARAM(6,1,1200)` |
+| 参数调控 | 速度环参数写入 `SET_PARAM`;回读 CONFIG 4 条 |
+| 安全参数 | 24 等安全限制参数二次确认后写入 |
+| 演示 + CSV | 演示产生 100Hz 数据;记录后下载 CSV |
+| 分组/模式单测 | 30 条参数分组、paramMode、安全标记 |
+
 ## Mock 方案(测试不依赖真实硬件/真实 LLM)
 
 - **LLM**:Playwright `page.route('**/api/llm')` 拦截,返回固定 SSE 流(text / tool_call / error)。见 `e2e/chat.spec.ts`、`e2e/tool-call.spec.ts`。

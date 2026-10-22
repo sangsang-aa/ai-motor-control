@@ -4,7 +4,7 @@
 **Branch:** fix/web-serial-reliability
 
 ## OVERVIEW
-React 组件层,分 `chat/`(聊天主界面)、`scope/`(示波器)、`param-est/`(PMSM mode7 辨识)三个独立域。**组件只经 store + bus 读数据,不经 window.api/直接串口。**
+React 组件层,分 `chat/`(聊天主界面)、`scope/`(示波器)、`param-est/`(PMSM mode7 辨识)、`control/`(手动控制与参数调控)四个独立域。**组件只经 store + bus 读数据,不经 window.api/直接串口。**
 
 ## STRUCTURE
 ```
@@ -25,12 +25,20 @@ components/
 │   ├── ChannelPanel.tsx   # 每通道 enable/label/bias/V-div/色 + 统计
 │   ├── HexView.tsx        # 原始字节 HEX 视图
 │   └── PauseToggle.tsx / HexToggle.tsx
-└── param-est/   # PMSM 参数辨识(mode7)
+├── param-est/   # PMSM 参数辨识(mode7)
     ├── ParamEstApp.tsx    # 页壳 + aiMotorBus 订阅
     ├── ConnectionBar.tsx  # 复用主控制器连接/状态
     ├── TestControlPanel.tsx # 母线/极对数/最大测试电流 → 配置/开始/停止
     ├── EstimatedParamsPanel.tsx # Rs/Ld/Lq/Ls + ident stage/error
     └── DebugScope.tsx     # 实时 Id/Iq/Speed/stage
+└── control/     # 手动控制与参数调控
+    ├── ControlApp.tsx     # 页壳 + aiMotorBus 订阅
+    ├── ControlBar.tsx     # 连接/演示/mode/启停
+    ├── SpeedPanel.tsx     # 目标转速 + 给定/实测
+    ├── ParamGroups.tsx    # 30 条参数分组、回读、二次确认
+    ├── LivePanel.tsx      # 12 个实时量
+    ├── ModelPanel.tsx     # 已应用模型/保存状态
+    └── RecordingPanel.tsx # 100Hz CSV 记录下载
 ```
 
 ## WHERE TO LOOK
@@ -39,6 +47,7 @@ components/
 | 改聊天布局 | `chat/ChatApp.tsx` | 此处挂弹窗与 Sidebar 回调 |
 | 改示波器数据源 | `scope/ScopeApp.tsx` | `ai_sample` → `appendAiSample`(100Hz) |
 | 改参数辨识 | `param-est/` | mode7 配置/启停/结果;复用 `aiMotorBus` |
+| 改手动控制/调参 | `control/` | mode/启停/调速/参数分组/CSV;复用 `aiMotorBus` |
 | 改消息/确认 | `chat/ChatPane.tsx` + `chat/ConfirmCard.tsx` | tool_call 锁链 |
 | 改设置/搜索 | `chat/SettingsPanel.tsx` + `chat/SearchDialog.tsx` | 弹窗,overlay 有 data-testid |
 

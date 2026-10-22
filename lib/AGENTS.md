@@ -19,7 +19,8 @@ lib/
 ├── serial/aimotor/
 │   ├── protocol.ts       # A5 5A 帧 / CRC16-CCITT / 命令 / SAMPLE / MODEL / CONFIG 编解码
 │   ├── params.ts         # 允许参数表 + 安全锁 + 范围/整数校验
-│   └── controller.ts     # Web Serial + HELLO/心跳/ACK 重试/STOP/100Hz 遥测
+│   ├── controller.ts     # Web Serial + HELLO/心跳/ACK 重试/STOP/100Hz 遥测 + 演示模式
+│   └── control.ts        # 参数分组 / paramMode / 安全标记
 ├── llm/
 │   ├── llmClient.ts      # SSE 解析 + abort(浏览器端)
 │   └── tools.ts          # 工具定义 TOOLS + 系统提示词 SYSTEM_PROMPT(前后端共用)
