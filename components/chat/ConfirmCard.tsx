@@ -3,6 +3,8 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
+import { MODE_LABEL } from '@/lib/serial/aimotor/protocol'
+import { getParam } from '@/lib/serial/aimotor/params'
 
 interface Props {
   toolName: string
@@ -15,6 +17,13 @@ interface Props {
 const INFO: Record<string, (a: Record<string, unknown>) => string> = {
   set_speed: (a) => `设置转速: ${String(a.rpm ?? '?')} RPM`,
   set_motor_state: (a) => (a.on ? '启动电机' : '停止电机'),
+  set_mode: (a) => `切换模式: ${MODE_LABEL[Number(a.mode)] ?? String(a.mode ?? '?')}`,
+  set_param: (a) => {
+    const def = getParam(Number(a.param))
+    const label = def?.label ?? `#${String(a.param)}`
+    const suffix = a.mode !== undefined ? ` (mode ${String(a.mode)})` : ''
+    return `写参数: ${label} = ${String(a.value)}${suffix}`
+  },
   get_status: () => '获取状态'
 }
 
