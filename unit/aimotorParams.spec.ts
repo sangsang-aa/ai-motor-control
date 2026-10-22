@@ -8,6 +8,7 @@ import {
   globalParams,
   isAiLocked,
   validateParamValue,
+  validateAiParam,
   clampCommandRpm
 } from '@/lib/serial/aimotor/params'
 
@@ -62,5 +63,16 @@ describe('aimotor 参数表', () => {
     expect(clampCommandRpm(9000)).toBe(6000)
     expect(clampCommandRpm(-9000)).toBe(-6000)
     expect(clampCommandRpm(Number.NaN)).toBe(0)
+  })
+
+  it('AI 写参数:拒绝锁定/未知,允许普通参数', () => {
+    expect(validateAiParam(24, 10).ok).toBe(false)
+    expect(validateAiParam(6, 1000).ok).toBe(false)
+    expect(validateAiParam(13, 3).ok).toBe(false)
+    expect(validateAiParam(42, 5).ok).toBe(false)
+    expect(validateAiParam(999, 1).ok).toBe(false)
+    expect(validateAiParam(1, 1500).ok).toBe(true)
+    expect(validateAiParam(11, 0.004).ok).toBe(true)
+    expect(validateAiParam(1, 20000).ok).toBe(false)
   })
 })

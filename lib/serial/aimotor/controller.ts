@@ -19,7 +19,7 @@ import {
   type Packet,
   type Sample
 } from './protocol'
-import { clampCommandRpm, getParam } from './params'
+import { clampCommandRpm, getParam, validateAiParam } from './params'
 
 const ACK_TIMEOUT_MS = 800
 const HELLO_TIMEOUT_MS = 1200
@@ -351,6 +351,36 @@ export async function sendCommand(action: string, payload: Record<string, unknow
 
   if (action === 'emergency_stop') return stopAndReport(action, 'OK emergency_stop')
 
+  if (action === 'set_mode') {
+    const mode = Number(payload.mode)
+    if (![5, 6, 7, 8].includes(mode)) throw new Error('模式只允许 5/6/7/8')
+    const ack = await request(CMD.SET_MODE, mode)
+    if (ack.status !== 0) throw new Error(ACK_STATUS[ack.status] ?? `status ${ack.status}`)
+    activeMode = mode
+    const result = `OK mode=${mode}`
+    aiMotorBus.emit({ type: 'ai_executed', action, result })
+    return result
+  }
+
+  if (action === 'set_param') {
+    const id = Number(payload.param)
+    const value = Number(payload.value)
+    const def = getParam(id)
+    if (!def) throw new Error(`未知参数 ID: ${id}`)
+    const rawMode = payload.mode === undefined ? undefined : Number(payload.mode)
+    const mode = rawMode !== undefined && [0, 6, 7, 8].includes(rawMode)
+      ? rawMode
+      : def.modes.includes(activeMode) ? activeMode : def.modes[0] ?? 0
+    const lookup = (pid: number) => getConfigValue(mode, pid) ?? getConfigValue(0, pid)
+    const check = validateAiParam(id, value, lookup)
+    if (!check.ok) throw new Error(check.reason)
+    const ack = await request(CMD.SET_PARAM, mode, id, value)
+    if (ack.status !== 0) throw new Error(ACK_STATUS[ack.status] ?? `status ${ack.status}`)
+    const result = `OK ${def.key}=${value} (mode ${mode})`
+    aiMotorBus.emit({ type: 'ai_executed', action, result })
+    return result
+  }
+
   if (action === 'clear_emergency_stop') {
     await stopAndReport(action, 'OK stop')
     const ack = await request(CMD.SET_MODE, 5)
@@ -368,6 +398,9 @@ export async function sendCommand(action: string, payload: Record<string, unknow
     const value = Number(payload.value)
     if (!Number.isFinite(value)) throw new Error('参数值必须为有效数字')
     const mode = activeMode === 6 || activeMode === 8 ? activeMode : 6
+    const lookup = (pid: number) => getConfigValue(mode, pid) ?? getConfigValue(0, pid)
+    const check = validateAiParam(id, value, lookup)
+    if (!check.ok) throw new Error(check.reason)
     const ack = await request(CMD.SET_PARAM, mode, id, value)
     if (ack.status !== 0) throw new Error(ACK_STATUS[ack.status] ?? `status ${ack.status}`)
     const result = `OK ${def.key}=${value}`

@@ -90,6 +90,18 @@ export function validateParamValue(
   return { ok: true, value }
 }
 
+/** AI/自动流程写参数:未知 ID 或安全锁定参数一律拒绝。 */
+export function validateAiParam(
+  id: number,
+  value: number,
+  lookup?: (id: number) => number | undefined
+): ParamValidation {
+  const def = getParam(id)
+  if (!def) return { ok: false, reason: `未知参数 ID: ${id}` }
+  if (isAiLocked(id)) return { ok: false, reason: `${def.label} 为安全锁定参数，禁止 AI 修改` }
+  return validateParamValue(def, value, lookup)
+}
+
 export const COMMAND_RPM_SAFETY_LIMIT = 6000
 
 export function clampCommandRpm(rpm: number, limit = COMMAND_RPM_SAFETY_LIMIT): number {
