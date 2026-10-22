@@ -1,6 +1,7 @@
 // Web 版跨层类型 — 从原 Electron 版 src/shared/types.ts 迁移(去掉 MotraApi/窗口相关)
 
 import type { ConfigParamName } from './config'
+import type { Sample, Model, ConfigRecord } from './serial/aimotor/protocol'
 
 export type SessionStatus = 'idle' | 'running' | 'error'
 export type LockStatus = 'idle' | 'pending' | 'executing'
@@ -133,6 +134,25 @@ export interface DataQualityReport {
   blocks: number
   reason?: string
 }
+
+// ── AI-Motor v1 主串口事件(替代 Modbus backendBus)──────────────
+export interface AiStatusEvent { type: 'ai_status'; connected: boolean; port: string; baudRate: number }
+export interface AiSampleEvent { type: 'ai_sample'; sample: Sample }
+export interface AiModelEvent { type: 'ai_model'; model: Model }
+export interface AiConfigEvent { type: 'ai_config'; records: ConfigRecord[] }
+export interface AiAckEvent { type: 'ai_ack'; command: number; status: number; param: number; value: number }
+export interface AiErrorEvent { type: 'ai_error'; message: string }
+export interface AiClosedEvent { type: 'ai_closed' }
+export interface AiExecutedEvent { type: 'ai_executed'; action: string; result: string }
+export type AiMotorEvent =
+  | AiStatusEvent
+  | AiSampleEvent
+  | AiModelEvent
+  | AiConfigEvent
+  | AiAckEvent
+  | AiErrorEvent
+  | AiClosedEvent
+  | AiExecutedEvent
 
 /** 参数辨识事件(独立总线 paramEstBus,不并入 backendBus) */
 export type ParamEstEvent =

@@ -9,6 +9,7 @@
  */
 
 import { create } from 'zustand'
+import type { Sample } from '../serial/aimotor/protocol'
 
 // Stub types (scope-store local, not from motra)
 interface RxChannel { name: string; scale: number; offset: number; unit: string; signed: boolean }
@@ -32,6 +33,8 @@ interface SerialStatus {
 }
 
 export const SAMPLE_TIME_S = 1 / 5000 // 板端电流波形上传采样周期:200 us
+/** AI-Motor v1 快速遥测周期(10ms → 100Hz) */
+export const AI_SAMPLE_TIME_S = 0.01
 export const DISPLAY_SAMPLES = 4000
 export const N_SAMPLES_MIN = 2
 export const N_SAMPLES_MAX = 1_000_000
@@ -186,6 +189,10 @@ export interface ScopeState {
   setSpan: (span: number, unit: SpanUnit) => void
   applyFrame: (payload: number[], nChannels: number) => void
   enqueueWaveFrame: (samples: number[], rpm: number, batch: number) => void
+  /** 配置 6 个 AI-Motor 通道(Iu/Speed/Id/Iq/EMF/I-F) */
+  initAiChannels: () => void
+  /** 追加一帧 100Hz 快速遥测 */
+  appendAiSample: (sample: Sample) => void
   appendHex: (chunk: Uint8Array) => void
   setStatus: (status: SerialStatus) => void
   setErrorMessage: (msg: string | null) => void
@@ -417,6 +424,53 @@ export const useScopeStore = create<ScopeState>((set, get) => ({
       spanUnit: 'ms',
       waveBatch: batch,
       waveLastReceivedAt: receivedAt
+    })
+  },
+
+  initAiChannels: () => {
+    const defs = [
+      { name: 'Iu (A)', unit: 'A', yRange: 5, bias: 0, enabled: true },
+      { name: 'Speed (RPM)', unit: 'rpm', yRange: 2500, bias: -1, enabled: true },
+      { name: 'Id (A)', unit: 'A', yRange: 5, bias: 0, enabled: false },
+      { name: 'Iq (A)', unit: 'A', yRange: 5, bias: 0, enabled: false },
+      { name: 'EMF (V)', unit: 'V', yRange: 5, bias: 0, enabled: false },
+      { name: 'I/F (RPM)', unit: 'rpm', yRange: 2500, bias: 0, enabled: false }
+    ]
+    const n = get().n
+    const channels: ChannelCfg[] = defs.map((d) => ({
+      ...d, signed: true, scale: 1, offset: 0, colorOverride: null, label: '', range: {}
+    }))
+    set({
+      channels,
+      buffers: emptyBuffers(n, channels.length),
+      filled: 0,
+      ts: AI_SAMPLE_TIME_S,
+      span: n * AI_SAMPLE_TIME_S * 1e3,
+      spanUnit: 'ms'
+    })
+  },
+
+  appendAiSample: (sample) => {
+    if (get().paused) return
+    const state = get()
+    const n = state.n
+    const channels = state.channels
+    const values = [sample.iu, sample.speed, sample.id, sample.iq, sample.emf, sample.if_speed]
+    let buffers = state.buffers
+    if (buffers.length !== channels.length) buffers = emptyBuffers(n, channels.length)
+    for (let c = 0; c < channels.length; c++) {
+      const buf = buffers[c]
+      if (!buf) continue
+      buf.copyWithin(0, 1)
+      const v = values[c]
+      buf[n - 1] = Number.isFinite(v) ? v : 0
+    }
+    set({
+      buffers: buffers.slice(),
+      filled: Math.min(n, state.filled + 1),
+      ts: AI_SAMPLE_TIME_S,
+      span: n * AI_SAMPLE_TIME_S * 1e3,
+      spanUnit: 'ms'
     })
   },
 
