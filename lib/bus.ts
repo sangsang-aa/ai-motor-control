@@ -17,7 +17,7 @@ class Emitter<T> {
   }
 }
 
-import type { AiMotorEvent, BackendEvent, LlmEvent, ParamEstEvent } from './types'
+import type { AiMotorEvent, BackendEvent, LlmEvent } from './types'
 
 /** 串口/电机后端事件(替代 Electron 的 motor:event 广播) */
 export const backendBus = new Emitter<BackendEvent>()
@@ -30,6 +30,3 @@ export const hexBus = new Emitter<Uint8Array>()
 
 /** AI-Motor v1 主串口事件(替代 Modbus backendBus) */
 export const aiMotorBus = new Emitter<AiMotorEvent>()
-
-/** PMSM 参数辨识事件(独立总线,不与 backendBus 混用) */
-export const paramEstBus = new Emitter<ParamEstEvent>()
