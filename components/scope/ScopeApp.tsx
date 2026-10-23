@@ -13,9 +13,11 @@ import { useScopeStore, autoColor } from '@/lib/stores/scopeStore'
 import { useMotorStore } from '@/lib/stores/motorStore'
 import { aiMotorBus, hexBus } from '@/lib/bus'
 import { useLangStore, t } from '@/lib/i18n'
+import { useSettingsStore } from '@/lib/settings'
 
 export const ScopeApp: React.FC = () => {
   const lang = useLangStore((s) => s.lang)
+  const theme = useSettingsStore((s) => s.settings.theme)
   const { status, connected, applyEvent } = useMotorStore()
   const appendHex = useScopeStore((s) => s.appendHex)
   const initAiChannels = useScopeStore((s) => s.initAiChannels)
@@ -70,13 +72,13 @@ export const ScopeApp: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 16, padding: '8px 14px', borderBottom: '1px solid var(--cx-border)', flexShrink: 0, background: 'var(--cx-bg-elev)' }}>
             <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--cx-text)', marginRight: 4 }}>{t(lang, 'realtime')}</span>
             <span data-testid="realtime-current" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--cx-muted)' }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: channels[0]?.colorOverride || autoColor(0) }} />
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: channels[0]?.colorOverride || autoColor(0, theme) }} />
               <span>Iu</span>
               <b style={{ color: 'var(--cx-text)', fontFamily: "'JetBrains Mono',Consolas,monospace" }}>{latestCurrent.toFixed(3)}</b>
               <span style={{ fontSize: 10, color: 'var(--cx-subtle)' }}>A</span>
             </span>
             <span data-testid="realtime-speed" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--cx-muted)' }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: channels[1]?.colorOverride || autoColor(1) }} />
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: channels[1]?.colorOverride || autoColor(1, theme) }} />
               <span>Speed</span>
               <b style={{ color: 'var(--cx-text)', fontFamily: "'JetBrains Mono',Consolas,monospace" }}>{status.rpm.toFixed(0)}</b>
               <span style={{ fontSize: 10, color: 'var(--cx-subtle)' }}>RPM</span>

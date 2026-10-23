@@ -68,13 +68,26 @@ test('示波器页正常渲染', async ({ page }) => {
   await expect(page.locator('a', { hasText: '返回聊天' })).toBeVisible()
 })
 
-test('Codex 风格外壳渲染(令牌生效)', async ({ page }) => {
+test('Codex 外壳渲染(亮色令牌生效)', async ({ page }) => {
   await gotoChat(page)
   await expect(page.locator('[data-ui="codex"]')).toBeVisible()
   await expect(page.locator('[data-ui="codex"] aside.sidebar')).toBeVisible()
   await expect(page.locator('[data-ui="codex"] textarea')).toBeVisible()
   const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor)
-  expect(bg).toBe('rgb(10, 10, 10)')
+  expect(bg).toBe('rgb(247, 247, 245)')
+})
+
+test('亮/暗主题切换并持久化', async ({ page }) => {
+  await gotoChat(page)
+  const bg = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor)
+  expect(await bg()).toBe('rgb(247, 247, 245)')
+
+  await page.getByTestId('theme-toggle').click()
+  await expect.poll(bg).toBe('rgb(10, 10, 10)')
+
+  await page.reload()
+  await page.waitForSelector('aside.sidebar')
+  expect(await bg()).toBe('rgb(10, 10, 10)')
 })
 
 test('Codex 外壳覆盖示波器与知识库页', async ({ page }) => {

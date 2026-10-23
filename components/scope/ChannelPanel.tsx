@@ -6,6 +6,7 @@ import {
   getEffectiveVdivRange
 } from '@/lib/stores/scopeStore'
 import { computeStats } from '@/lib/stats'
+import { useSettingsStore } from '@/lib/settings'
 import type { ChannelCfg } from '@/lib/stores/scopeStore'
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -231,6 +232,7 @@ function ValueRow({ ch, idx }: { ch: ChannelCfg; idx: number }) {
 // ── ChannelRow ───────────────────────────────────────────────────
 
 function ChannelRow({ ch, idx }: { ch: ChannelCfg; idx: number }) {
+  const theme = useSettingsStore((s) => s.settings.theme)
   const buffers = useScopeStore((s) => s.buffers)
   const n = useScopeStore((s) => s.n)
   const filled = useScopeStore((s) => s.filled)
@@ -240,7 +242,7 @@ function ChannelRow({ ch, idx }: { ch: ChannelCfg; idx: number }) {
   const setChannelColor = useScopeStore((s) => s.setChannelColor)
   const setChannelRange = useScopeStore((s) => s.setChannelRange)
 
-  const color = ch.colorOverride ?? autoColor(idx)
+  const color = ch.colorOverride ?? autoColor(idx, theme)
   const isUnused = !ch.enabled && !ch.label && !ch.unit && ch.name.startsWith('CH')
   const hasData = buffers[idx] && buffers[idx].length > 0
 

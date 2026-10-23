@@ -2,11 +2,12 @@
 
 import React, { useState, useEffect } from 'react'
 import { useLangStore, t } from '@/lib/i18n'
-import { loadSettings, saveSettings, PROVIDER_PRESETS, getProviderPreset, type Language } from '@/lib/settings'
+import { loadSettings, saveSettings, PROVIDER_PRESETS, getProviderPreset, useSettingsStore, setTheme, type Language, type Theme } from '@/lib/settings'
 
 export const SettingsPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const lang = useLangStore((s) => s.lang)
   const setLang = useLangStore((s) => s.setLang)
+  const theme = useSettingsStore((s) => s.settings.theme)
   const [step, setStep] = useState<'provider' | 'api'>('provider')
   const [provider, setProvider] = useState('')
   const [baseUrl, setBaseUrl] = useState('')
@@ -85,6 +86,14 @@ export const SettingsPanel: React.FC<{ onClose: () => void }> = ({ onClose }) =>
               <select value={lang} onChange={(e) => handleLang(e.target.value as Language)} style={input}>
                 <option value="zh">简体中文</option>
                 <option value="en">English</option>
+              </select>
+            </div>
+
+            <div style={{ marginBottom: 14 }}>
+              <label style={label}>主题</label>
+              <select value={theme} onChange={(e) => setTheme(e.target.value as Theme)} style={input}>
+                <option value="light">亮色</option>
+                <option value="dark">暗色</option>
               </select>
             </div>
 

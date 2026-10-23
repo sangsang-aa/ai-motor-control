@@ -10,6 +10,7 @@
 
 import { create } from 'zustand'
 import type { Sample } from '../serial/aimotor/protocol'
+import type { Theme } from '../settings'
 
 // Stub types (scope-store local, not from motra)
 interface RxChannel { name: string; scale: number; offset: number; unit: string; signed: boolean }
@@ -94,20 +95,20 @@ interface PersistedChannelView {
   range?: ChannelRange
 }
 
-/** 自动调色板 — 与 tailwind.config.js / index.css 的 --scope-ch* 对齐 */
-export const AUTO_PALETTE: readonly string[] = [
-  '#58a6ff', // ch1 blue
-  '#f0883e', // ch2 orange
-  '#a371f7', // ch3 purple
-  '#3fb950', // ch4 green
-  '#f778ba', // ch5 pink
-  '#ffd33d', // ch6 yellow
-  '#76e3ea', // ch7 cyan
-  '#e85a72', // ch8 red
-] as const
+/** 自动调色板 — 亮底调深、暗底保持高饱和 */
+const AUTO_PALETTE_LIGHT: readonly string[] = [
+  '#d1242f', '#0f766e', '#0969da', '#9a6700',
+  '#8250df', '#6639ba', '#1a7f37', '#bc4c2b'
+]
 
-export function autoColor(idx: number): string {
-  return AUTO_PALETTE[idx % AUTO_PALETTE.length]
+const AUTO_PALETTE_DARK: readonly string[] = [
+  '#58a6ff', '#f0883e', '#a371f7', '#3fb950',
+  '#f778ba', '#ffd33d', '#76e3ea', '#e85a72'
+]
+
+export function autoColor(idx: number, theme: Theme = 'light'): string {
+  const palette = theme === 'dark' ? AUTO_PALETTE_DARK : AUTO_PALETTE_LIGHT
+  return palette[idx % palette.length]
 }
 
 /** 一个通道 = 物理 Rx 字段 + 视图层用户态(可独立改动) */

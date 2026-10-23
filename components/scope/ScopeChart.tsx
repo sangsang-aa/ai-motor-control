@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useScopeStore, autoColor } from '@/lib/stores/scopeStore'
+import { useSettingsStore } from '@/lib/settings'
 
 /** Padding inside the SVG (top, right, bottom, left) */
 const PAD = { top: 20, right: 160, bottom: 36, left: 60 }
@@ -32,6 +33,7 @@ export default function ScopeChart() {
   const filled = useScopeStore((s) => s.filled)
   const span = useScopeStore((s) => s.span)
   const spanUnit = useScopeStore((s) => s.spanUnit)
+  const theme = useSettingsStore((s) => s.settings.theme)
 
   // ── ResizeObserver ──────────────────────────────────────
   useEffect(() => {
@@ -93,7 +95,7 @@ export default function ScopeChart() {
     const buf = buffers[ci]
     if (!buf || buf.length === 0) continue
 
-    const color = ch.colorOverride ?? autoColor(ci)
+    const color = ch.colorOverride ?? autoColor(ci, theme)
     const lastVal = buf[n - 1] ?? 0
     legend.push({
       color,
@@ -132,7 +134,7 @@ export default function ScopeChart() {
         preserveAspectRatio="none"
       >
         {/* Background */}
-        <rect x={0} y={0} width={w} height={h} fill="#0a0a0a" />
+        <rect x={0} y={0} width={w} height={h} style={{ fill: 'var(--cx-chart-bg)' }} />
 
         {/* Horizontal grid lines */}
         {hGridLines.map((y, i) => (
@@ -142,7 +144,7 @@ export default function ScopeChart() {
             y1={y}
             x2={w - rightPad}
             y2={y}
-            stroke="#1c1c1c"
+            style={{ stroke: 'var(--cx-chart-grid)' }}
             strokeWidth={i === 3 ? 1 : 0.5 /* centre line slightly brighter */}
           />
         ))}
@@ -155,7 +157,7 @@ export default function ScopeChart() {
             y1={PAD.top}
             x2={x}
             y2={h - PAD.bottom}
-            stroke="#1c1c1c"
+            style={{ stroke: 'var(--cx-chart-grid)' }}
             strokeWidth={0.5}
           />
         ))}
@@ -167,7 +169,7 @@ export default function ScopeChart() {
           width={iw}
           height={ih}
           fill="none"
-          stroke="#2a2a2a"
+          style={{ stroke: 'var(--cx-chart-border)' }}
           strokeWidth={1}
         />
 
@@ -178,13 +180,13 @@ export default function ScopeChart() {
           const botVal = ch.bias * ch.yRange - ch.yRange * 2.5
           return (
             <g>
-              <text x={PAD.left - 4} y={PAD.top + 10} fill="#9a9a9a" fontSize={9} fontFamily="monospace" textAnchor="end">
+              <text x={PAD.left - 4} y={PAD.top + 10} style={{ fill: 'var(--cx-chart-text)' }} fontSize={9} fontFamily="monospace" textAnchor="end">
                 {fmtNum(topVal)}
               </text>
-              <text x={PAD.left - 4} y={h - PAD.bottom - 2} fill="#9a9a9a" fontSize={9} fontFamily="monospace" textAnchor="end">
+              <text x={PAD.left - 4} y={h - PAD.bottom - 2} style={{ fill: 'var(--cx-chart-text)' }} fontSize={9} fontFamily="monospace" textAnchor="end">
                 {fmtNum(botVal)}
               </text>
-              <text x={PAD.left - 4} y={centerY + 3} fill="#9a9a9a" fontSize={9} fontFamily="monospace" textAnchor="end">
+              <text x={PAD.left - 4} y={centerY + 3} style={{ fill: 'var(--cx-chart-text)' }} fontSize={9} fontFamily="monospace" textAnchor="end">
                 {fmtNum(ch.bias * ch.yRange)}
               </text>
             </g>
@@ -199,7 +201,7 @@ export default function ScopeChart() {
               key={`xt${i}`}
               x={x}
               y={h - PAD.bottom + 14}
-              fill="#9a9a9a"
+              style={{ fill: 'var(--cx-chart-text)' }}
               fontSize={9}
               fontFamily="monospace"
               textAnchor={i === 0 ? 'start' : i === timeDivisions ? 'end' : 'middle'}
@@ -214,7 +216,7 @@ export default function ScopeChart() {
           <path
             key={`wf${i}`}
             d={p.d}
-            stroke={p.color}
+            style={{ stroke: p.color }}
             strokeWidth={1.5}
             fill="none"
           />
@@ -223,7 +225,7 @@ export default function ScopeChart() {
         {/* Zero markers + channel labels */}
         {channels.map((ch, ci) => {
           if (!ch.enabled) return null
-          const color = ch.colorOverride ?? autoColor(ci)
+          const color = ch.colorOverride ?? autoColor(ci, theme)
           const y0 = centerY - ch.bias * (ih / 5)
           return (
             <g key={`zm${ci}`}>
@@ -232,7 +234,7 @@ export default function ScopeChart() {
                 y1={y0.toFixed(1)}
                 x2={(w - rightPad).toFixed(1)}
                 y2={y0.toFixed(1)}
-                stroke={color}
+                style={{ stroke: color }}
                 strokeWidth={0.8}
                 strokeDasharray="4 3"
                 opacity={0.4}
@@ -240,7 +242,7 @@ export default function ScopeChart() {
               <text
                 x={PAD.left + 8}
                 y={(y0 - 3).toFixed(1)}
-                fill={color}
+                style={{ fill: color }}
                 fontSize={10}
                 fontFamily="monospace"
                 opacity={0.8}
@@ -260,7 +262,7 @@ export default function ScopeChart() {
               width={PAD.right - 16}
               height={legend.length * 24 + 8}
               rx={4}
-              fill="#0a0a0a"
+              style={{ fill: 'var(--cx-chart-legend-bg)' }}
               opacity={0.82}
             />
             {legend.map((item, i) => (
@@ -272,13 +274,13 @@ export default function ScopeChart() {
                   width={10}
                   height={10}
                   rx={2}
-                  fill={item.color}
+                  style={{ fill: item.color }}
                 />
                 {/* Label */}
                 <text
                   x={w - PAD.right + 28}
                   y={PAD.top + 17 + i * 24}
-                  fill="#ececec"
+                  style={{ fill: 'var(--cx-chart-label)' }}
                   fontSize={10}
                   fontFamily="monospace"
                 >
@@ -290,7 +292,7 @@ export default function ScopeChart() {
                 <text
                   x={w - PAD.right + 14}
                   y={PAD.top + 28 + i * 24}
-                  fill="#9a9a9a"
+                  style={{ fill: 'var(--cx-chart-text)' }}
                   fontSize={9}
                   fontFamily="monospace"
                 >

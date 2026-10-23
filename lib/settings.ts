@@ -5,9 +5,11 @@
 import { create } from 'zustand'
 
 export type Language = 'zh' | 'en'
+export type Theme = 'light' | 'dark'
 
 export interface Settings {
   language: Language
+  theme: Theme
   provider: string
   baseUrl: string
   apiKey: string
@@ -62,6 +64,7 @@ export function getProviderPreset(name: string): ProviderPreset | undefined {
 
 export const DEFAULT_SETTINGS: Settings = {
   language: 'zh',
+  theme: 'light',
   provider: '阿里云百炼 (专属部署)',
   baseUrl: '',
   apiKey: '',
@@ -78,6 +81,18 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setSettings: (settings) => set({ settings })
 }))
 
+export function applyTheme(theme: Theme): void {
+  if (typeof document === 'undefined') return
+  document.documentElement.dataset.theme = theme
+  document.documentElement.style.colorScheme = theme
+}
+
+export function setTheme(theme: Theme): Settings {
+  const next = saveSettings({ theme })
+  applyTheme(next.theme)
+  return next
+}
+
 export function loadSettings(): Settings {
   try {
     const raw = localStorage.getItem(LS_KEY)
@@ -86,6 +101,7 @@ export function loadSettings(): Settings {
         ? loadFrom(JSON.parse(raw) as Partial<Settings>)
         : { ...DEFAULT_SETTINGS }
     useSettingsStore.getState().setSettings(settings)
+    applyTheme(settings.theme)
     return settings
   } catch {
     return { ...DEFAULT_SETTINGS }
@@ -95,6 +111,7 @@ export function loadSettings(): Settings {
 function loadFrom(parsed: Partial<Settings>): Settings {
   return {
     language: parsed.language === 'en' ? 'en' : 'zh',
+    theme: parsed.theme === 'dark' ? 'dark' : 'light',
     provider: parsed.provider ?? DEFAULT_SETTINGS.provider,
     baseUrl: parsed.baseUrl ?? '',
     apiKey: parsed.apiKey ?? '',
@@ -110,5 +127,6 @@ export function saveSettings(patch: SettingsPatch): Settings {
     /* localStorage 不可用时静默 */
   }
   useSettingsStore.getState().setSettings(next)
+  applyTheme(next.theme)
   return next
 }

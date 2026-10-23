@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { useSessionStore } from '@/lib/stores/sessionStore'
 import { generateReport } from '@/lib/report'
 import { useLangStore, t } from '@/lib/i18n'
+import { useSettingsStore, setTheme } from '@/lib/settings'
 
 interface Props {
   onOpenSettings: () => void
@@ -25,6 +26,8 @@ const Ico = {
   scope: <svg {...ICON_PROPS}><path d="M3 12h3l2-6 3 12 2.5-8 1.5 2h6" /></svg>,
   paramEst: <svg {...ICON_PROPS}><path d="M4 7h16M4 17h16" /><circle cx="9" cy="7" r="2" /><circle cx="15" cy="17" r="2" /></svg>,
   control: <svg {...ICON_PROPS}><circle cx="12" cy="12" r="7" /><path d="M12 12l3-3" /></svg>,
+  sun: <svg {...ICON_PROPS}><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>,
+  moon: <svg {...ICON_PROPS}><path d="M21 12.8A8 8 0 1 1 11.2 3a6.5 6.5 0 0 0 9.8 9.8z" /></svg>,
   book: <svg {...ICON_PROPS}><path d="M4 5a2 2 0 0 1 2-2h13v18H6a2 2 0 0 1-2-2z" /><path d="M8 3v18" /></svg>,
   download: <svg {...ICON_PROPS}><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M4 21h16" /></svg>,
   gear: <svg {...ICON_PROPS}><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1" /></svg>,
@@ -34,6 +37,7 @@ const Ico = {
 
 export const Sidebar: React.FC<Props> = ({ onOpenSettings, onOpenSearch }) => {
   const lang = useLangStore((s) => s.lang)
+  const theme = useSettingsStore((s) => s.settings.theme)
   const { sessions, order, currentId, createSession, deleteSession, renameSession, selectSession } = useSessionStore()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
@@ -55,6 +59,7 @@ export const Sidebar: React.FC<Props> = ({ onOpenSettings, onOpenSearch }) => {
     return (
       <div style={{ width: 44, flexShrink: 0, background: 'var(--cx-bg-elev)', borderRight: '1px solid var(--cx-border)', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 14, gap: 14 }}>
         <button onClick={() => setCollapsed(false)} style={{ color: 'var(--cx-muted)', cursor: 'pointer', background: 'none', border: 'none', display: 'flex' }} title={t(lang, 'expandSidebar')}>{Ico.panel}</button>
+        <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} style={{ color: 'var(--cx-muted)', cursor: 'pointer', background: 'none', border: 'none', display: 'flex' }} title={theme === 'light' ? '切换到暗色' : '切换到亮色'} data-testid="theme-toggle">{theme === 'light' ? Ico.moon : Ico.sun}</button>
         <button onClick={onOpenSearch} style={{ color: 'var(--cx-muted)', cursor: 'pointer', background: 'none', border: 'none', display: 'flex' }} title={t(lang, 'search')}>{Ico.search}</button>
         <Link href="/scope" style={{ color: 'var(--cx-muted)', cursor: 'pointer', textDecoration: 'none', display: 'flex' }} title={t(lang, 'scope')}>{Ico.scope}</Link>
         <Link href="/knowledge" style={{ color: 'var(--cx-muted)', cursor: 'pointer', textDecoration: 'none', display: 'flex' }} title={t(lang, 'knowledge')}>{Ico.book}</Link>
@@ -70,11 +75,12 @@ export const Sidebar: React.FC<Props> = ({ onOpenSettings, onOpenSearch }) => {
     <div style={{ position: 'relative', width: 240, flexShrink: 0, display: 'flex' }}>
       <aside className="sidebar" style={{ width: 240, flex: 1 }}>
         <div className="sb-brand">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#ffffff', borderRadius: 6, padding: '5px 10px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#ffffff', border: '1px solid var(--cx-border-2)', borderRadius: 6, padding: '5px 10px', flexShrink: 0 }}>
             <img src="/trademark_image.png" alt="FluxPilot" style={{ height: 22, width: 'auto', maxWidth: 26, objectFit: 'contain', flexShrink: 0 }} />
             <img src="/trademark.png" alt="FluxPilot" style={{ height: 18, width: 'auto', maxWidth: 92, objectFit: 'contain', flexShrink: 0 }} />
           </div>
           <span style={{ flex: 1 }} />
+          <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} style={{ color: 'var(--cx-muted)', cursor: 'pointer', background: 'none', border: 'none', padding: '0 2px', display: 'flex' }} title={theme === 'light' ? '切换到暗色' : '切换到亮色'} data-testid="theme-toggle">{theme === 'light' ? Ico.moon : Ico.sun}</button>
           <button onClick={onOpenSearch} style={{ color: 'var(--cx-muted)', cursor: 'pointer', background: 'none', border: 'none', padding: '0 2px', display: 'flex' }} title={t(lang, 'search')}>{Ico.search}</button>
           <button onClick={() => setCollapsed(true)} style={{ color: 'var(--cx-muted)', cursor: 'pointer', background: 'none', border: 'none', padding: '0 2px', display: 'flex' }} title={t(lang, 'hideSidebar')}>{Ico.panel}</button>
         </div>
