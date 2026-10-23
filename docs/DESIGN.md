@@ -1,34 +1,33 @@
-# DESIGN.md — MOTOTUNE 界面参考(Codex 近黑极简)
+# DESIGN.md — MOTOTUNE 界面参考(Codex 亮/暗双主题)
 
-**Reference:** Codex 桌面/网页 GUI(近黑、极简、发丝边框)。
-**Goal:** MOTOTUNE(电机控制 + AI 对话)三页(聊天 `/`、示波器 `/scope`、知识库 `/knowledge`)统一为 Codex 视觉;功能与逻辑零改动,仅布局与样式。
+**Reference:** Codex 桌面/网页 GUI(极简、发丝边框)。
+**Goal:** MOTOTUNE(聊天 `/`、示波器 `/scope`、知识库 `/knowledge`、参数辨识 `/param-est`、手动控制 `/control`)统一为 Codex 视觉;**默认亮色,支持亮/暗切换**;功能与逻辑零改动,仅布局与样式。
 
 ## 1. Palette(tokens)
 
-两层 token 指向同一套值:
+- **CSS 变量** `--cx-*`(`app/globals.css`):`:root, [data-theme="light"]` 为亮色,`[data-theme="dark"]` 覆盖为暗色。
+- **Tailwind 语义 token**(`tailwind.config.js`)映射到同一套 `--cx-*`,因此亮/暗切换对示波器/知识库同样生效。
+- 主题持久化在设置(`mototune.settings.theme`);`app/layout.tsx` 首屏脚本在绘制前设置 `data-theme`。
 
-- **CSS 变量** `--cx-*`(定义在 `app/globals.css` 的 `:root`):聊天组件的原始 CSS 类与各页内联样式使用。
-- **Tailwind 语义 token**(`tailwind.config.js` 的 `colors`):示波器/知识库页面使用的类(`bg-surface` / `text-text-primary` 等)。
+| Token | 亮色 | 暗色 | 用途 |
+|---|---|---|---|
+| `--cx-bg` / `bg.base` | `#f7f7f5` | `#0a0a0a` | 全局底色 |
+| `--cx-bg-elev` / `bg.panel` | `#ffffff` | `#0f0f0f` | 侧栏 / 面板 |
+| `--cx-surface` / `surface` | `#ffffff` | `#141414` | 输入框 / 卡片 |
+| `--cx-surface-2` / `surface-light` | `#f3f3f1` | `#1a1a1a` | 次级面 |
+| `--cx-hover` / `surface-lighter` | `#ececea` | `#1e1e1e` | hover |
+| `--cx-border` / `line.DEFAULT` | `rgba(0,0,0,0.10)` | `rgba(255,255,255,0.08)` | 发丝边框 |
+| `--cx-border-2` / `line.bright` | `rgba(0,0,0,0.18)` | `rgba(255,255,255,0.14)` | 强调边框 |
+| `--cx-text` / `text-primary` | `#1a1a1a` | `#ececec` | 主文字 |
+| `--cx-muted` / `text-secondary` | `#5f5f5f` | `#9a9a9a` | 次级 |
+| `--cx-subtle` | `#8a8a8a` | `#6a6a6a` | 弱化 |
+| `--cx-accent` / `accent` | `#1a1a1a` | `#e8e8e8` | 主操作 |
+| `--cx-accent-fg` | `#ffffff` | `#0a0a0a` | 主操作文字 |
+| `--cx-success` | `#1a7f37` | `#3fb950` | 连接指示 |
+| `--cx-warning` | `#b54708` | `#febc2e` | 告警 |
+| `--cx-danger` | `#d92d20` | `#ff5f57` | 危险 |
 
-| Token | Value | 用途 |
-|---|---|---|
-| `--cx-bg` / `bg.base` | `#0a0a0a` | 全局底色 |
-| `--cx-bg-elev` / `bg.panel` | `#0f0f0f` | 侧栏 / 面板底色 |
-| `--cx-surface` / `surface` | `#141414` | 输入框容器 / 卡片 |
-| `--cx-surface-2` / `surface-light` | `#1a1a1a` | 次级面(菜单 / 消息气泡 / 文件行) |
-| `--cx-hover` / `surface-lighter` | `#1e1e1e` | hover |
-| `--cx-border` / `line.DEFAULT` | `rgba(255,255,255,0.08)` | 发丝边框 |
-| `--cx-border-2` / `line.bright` | `rgba(255,255,255,0.14)` | 较强边框 / 局部强调 |
-| `--cx-text` / `text-primary` | `#ececec` | 主文字 |
-| `--cx-muted` / `text-secondary` | `#9a9a9a` | 次级(分组标题 / 占位) |
-| `--cx-subtle` | `#6a6a6a` | 弱化 |
-| `--cx-accent` / `accent` | `#e8e8e8` | 主操作(近白) |
-| `--cx-accent-fg` | `#0a0a0a` | 主操作文字 |
-| `--cx-success` / `success` | `#3fb950` | 连接指示 |
-| `--cx-warning` / `warning` | `#febc2e` | 告警(ConfirmCard / 上传提示) |
-| `--cx-danger` / `danger` | `#ff5f57` | 危险(急停 / 断开) |
-
-> 通道辨识色 `scope-ch1..8` 在 `tailwind.config.js` 保留独立色相(图表需可区分)。
+> 示波器:`--cx-chart-*`(背景 / 网格 / 文字)与 `--cx-ch1..8` 通道色按亮/暗分别调深/调亮;`autoColor(idx, theme)` 供 `input[type=color]` 等需要 hex 的场景使用。
 
 ## 2. Typography
 

@@ -110,9 +110,10 @@ npm run test:unit / test:e2e / test:all   # 测试(playwright 起 3100,非 3000)
 - **知识库仅客户端**:PDF 文本用 `pdfjs-dist`(legacy build,`lib/knowledge/extract.ts` 动态 import + `new URL(worker, import.meta.url)`);文件存浏览器 **IndexedDB**。二者在服务端(`/api/llm`)不可用——内容由客户端解析后随请求体传给代理。
 - **Next dev 已知坑**:改代码时 `Fast Refresh` 触发整页 reload;若 reload 窗口期访问 `/api/llm`,会命中 `route.js` ENOENT → `POST /api/llm 500` / `Loading chunk ... failed`。症状是"输入请求 → 强制刷新 → 再输入报错"。**修复**:kill 所有 next 进程 → `rm -rf .next` → 重启 dev → 立即连续 curl `/api/llm` 触发编译。**根治**:稳定阶段用 `npm run build && npm start`(生产一次性生成所有 route.js,无按需编译问题)。
 
-## 组件约束(Codex 近黑极简,见 docs/DESIGN.md)
+## 组件约束(Codex 亮/暗双主题,见 docs/DESIGN.md)
 
-- 近黑中性主题:底色 `--cx-bg #0a0a0a`、面板 `--cx-bg-elev #0f0f0f`、主操作近白 `--cx-accent #e8e8e8`、告警 `#febc2e`、危险 `#ff5f57`。两层 token 同一套值:CSS 变量 `--cx-*`(`app/globals.css`)+ Tailwind 语义 token(`tailwind.config.js`)。别硬编码旧深蓝(`#0a1628`/`#00a8ff`)或旧青(`#2bb8a8`)。
+- 亮/暗双主题(默认亮):`--cx-*` 在 `:root, [data-theme="light"]` 与 `[data-theme="dark"]` 两套值;亮色底 `#f7f7f5`、暗色底 `#0a0a0a`,主操作 `--cx-accent`(亮=近黑/暗=近白)。Tailwind 语义 token 映射到同一套变量,切换对全站生效。别硬编码旧深蓝(`#0a1628`/`#00a8ff`)或旧青(`#2bb8a8`)。
+- 主题切换入口:侧栏品牌行按钮 + 设置面板;持久化 `mototune.settings.theme`;`app/layout.tsx` 首屏脚本避免闪烁。
 - 样式:Tailwind v3 + 原始 CSS 类(见 `app/globals.css`);**不 @apply 自定义颜色**(历史教训)。新增颜色/通道样式走 `tailwind.config.js` 的 colors(已含 `text-primary`/`text-secondary`/`surface`/`surface-lighter` 等)。
 - 品牌:侧栏顶部白色徽章 FluxPilot 商标(`public/trademark_image.png` 图标 + `public/trademark.png` 文字)。图标+文字组合,白底图放白色徽章上,勿用 mix-blend(深底会变暗)。
 - EStop 为 inline 红色胶囊,集成在 Composer 工具行(发送钮旁),非 fixed。

@@ -40,7 +40,8 @@ npm test                 # 单元测试
 | 侧栏固定窄宽 | 侧栏宽度 230–250px(无拖拽) |
 | 新建会话 | 点击后会话列表出现新会话 |
 | 示波器页渲染 | `/scope` 页面正常加载 |
-| Codex 外壳渲染 | `/` 根节点 `data-ui="codex"`,body 底色 `#0a0a0a` |
+| Codex 外壳渲染 | `/` 根节点 `data-ui="codex"`,默认亮色 body `#f7f7f5` |
+| 主题切换 | 侧栏切换到暗色 → body `#0a0a0a`;刷新后保持 |
 | Codex 外壳覆盖 | `/scope`、`/knowledge` 根节点 `data-ui="codex"` |
 
 ### 2. 主页面对话无卡死、无错误回答

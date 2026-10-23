@@ -12,7 +12,7 @@ lib/
 ├── types.ts              # 跨层类型(LlmEvent/Session/Message/MotorStatus/KnowledgePayload + AiMotorEvent)
 ├── bus.ts                # 事件总线: aiMotorBus(主串口)/llmBus(LLM)/hexBus(原始字节)
 ├── config.ts             # 常量 COMMAND_CONFIRM_TIMEOUT
-├── settings.ts           # localStorage 设置(语言/AI 供应商/baseUrl/apiKey/model)
+├── settings.ts           # localStorage 设置(语言/主题/AI 供应商/baseUrl/apiKey/model)
 ├── i18n.ts               # 中/英字典 + useLangStore(响应式切换)
 ├── report.ts             # 报告导出(Blob 下载)
 ├── stats.ts              # 示波器通道统计
