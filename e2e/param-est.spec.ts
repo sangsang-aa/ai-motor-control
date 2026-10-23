@@ -7,6 +7,7 @@ test('侧栏可进入参数辨识', async ({ page }) => {
   await page.locator('aside.sidebar a[href="/param-est"]').first().click()
   await expect(page).toHaveURL(/\/param-est$/)
   await expect(page.getByText('PMSM 参数辨识').first()).toBeVisible()
+  await expect(page.getByTestId('paramest-motor')).toBeVisible()
 })
 
 test('mode7:连接 → 下发配置 → 开始 → 显示已应用模型', async ({ page }) => {

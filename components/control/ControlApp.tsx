@@ -4,11 +4,13 @@ import React, { useEffect } from 'react'
 import { aiMotorBus } from '@/lib/bus'
 import { useMotorStore } from '@/lib/stores/motorStore'
 import ControlBar from './ControlBar'
+import ControlSignals from './ControlSignals'
+import ControlWaveforms from './ControlWaveforms'
 import SpeedPanel from './SpeedPanel'
 import ParamGroups from './ParamGroups'
-import LivePanel from './LivePanel'
-import ModelPanel from './ModelPanel'
 import RecordingPanel from './RecordingPanel'
+import ModelPanel from './ModelPanel'
+import ControlLog from './ControlLog'
 
 export const ControlApp: React.FC = () => {
   const applyEvent = useMotorStore((s) => s.applyEvent)
@@ -23,15 +25,17 @@ export const ControlApp: React.FC = () => {
       <ControlBar />
       <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
         <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <SpeedPanel />
           <ParamGroups />
+          <SpeedPanel />
         </div>
-        <div style={{ width: 430, flexShrink: 0, borderLeft: '1px solid var(--cx-border)', background: 'var(--cx-bg-elev)', overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <LivePanel />
-          <ModelPanel />
+        <div style={{ width: 560, flexShrink: 0, borderLeft: '1px solid var(--cx-border)', background: 'var(--cx-bg-elev)', overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <ControlSignals />
+          <ControlWaveforms />
           <RecordingPanel />
+          <ModelPanel />
         </div>
       </div>
+      <ControlLog />
     </div>
   )
 }

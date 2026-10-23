@@ -13,12 +13,14 @@ export default function SpeedPanel() {
   const [target, setTarget] = useState(String(getParam(1)?.default ?? 1500))
   const [busy, setBusy] = useState(false)
 
-  async function apply() {
+  async function applyRpm(value: number) {
     setBusy(true)
-    try { await sendCommand('set_speed', { rpm: Number(target) }) }
+    try { await sendCommand('set_speed', { rpm: value }) }
     catch (e) { alert(`设置目标失败: ${e}`) }
     setBusy(false)
   }
+
+  const dir = Math.abs(Number(target) || 0)
 
   return (
     <section className="cx-panel" style={{ padding: 16 }}>
@@ -28,7 +30,13 @@ export default function SpeedPanel() {
           <span style={{ fontSize: 11, color: 'var(--cx-subtle)' }}>目标 (RPM, 上限 6000)</span>
           <input className="input-base" data-testid="target-rpm" type="number" value={target} onChange={(e) => setTarget(e.target.value)} disabled={busy} />
         </label>
-        <button className="cx-btn cx-btn-primary" onClick={apply} disabled={!connected || busy} data-testid="apply-speed">应用目标</button>
+        <button className="cx-btn cx-btn-primary" onClick={() => applyRpm(Number(target))} disabled={!connected || busy} data-testid="apply-speed">发送目标</button>
+
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button className="cx-btn cx-btn-ghost" onClick={() => applyRpm(dir)} disabled={!connected || busy} data-testid="speed-forward">正转 +</button>
+          <button className="cx-btn cx-btn-ghost" onClick={() => applyRpm(-dir)} disabled={!connected || busy} data-testid="speed-reverse">反转 −</button>
+          <button className="cx-btn cx-btn-ghost" onClick={() => applyRpm(0)} disabled={!connected || busy} data-testid="speed-zero">减速至 0</button>
+        </div>
 
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 20 }}>
           <div>

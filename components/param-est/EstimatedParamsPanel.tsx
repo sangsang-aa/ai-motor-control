@@ -31,6 +31,13 @@ export default function EstimatedParamsPanel() {
     <section className="cx-panel" style={{ padding: 16 }}>
       <div className="cx-panel-title">辨识结果（设备已应用模型）</div>
 
+      <img
+        data-testid="paramest-motor"
+        src="/motor-product.png"
+        alt="电机"
+        style={{ width: '100%', maxHeight: 220, objectFit: 'contain', borderRadius: 10, border: '1px solid var(--cx-border)', background: 'var(--cx-bg-elev)', marginBottom: 12 }}
+      />
+
       <div style={{ fontSize: 12, color: 'var(--cx-muted)', marginBottom: 10 }}>
         阶段：{mode === 7 ? IDENT_STAGE_LABEL[stage] ?? stage : `stage ${stage}`}
         {errorCode ? ` · ${IDENT_ERROR_LABEL[errorCode] ?? `err ${errorCode}`}` : ''}

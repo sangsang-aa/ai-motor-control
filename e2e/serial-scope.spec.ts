@@ -49,6 +49,8 @@ test('示波器:接收 100Hz 遥测并渲染曲线(SVG path)', async ({ page }) 
 test('示波器:暂停按钮可切换(暂停逻辑)', async ({ page }) => {
   await page.goto('/scope')
   await page.waitForSelector('header')
+  await expect(page.getByText('位置').first()).toBeVisible()
+  await expect(page.getByText('V/div').first()).toBeVisible()
   const pause = page.locator('button', { hasText: '暂停' })
   await expect(pause).toBeVisible()
   await pause.click()

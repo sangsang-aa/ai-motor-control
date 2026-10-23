@@ -308,7 +308,7 @@ function ChannelRow({ ch, idx }: { ch: ChannelCfg; idx: number }) {
 
       {/* ── Bias slider row ────────────────────────────── */}
       <div className="flex items-center gap-1 mt-1">
-        <LimitInput ch={ch} idx={idx} kind="bias" label="B" />
+        <LimitInput ch={ch} idx={idx} kind="bias" label="位置" />
         <input
           type="range"
           min={biasRange.min}
@@ -317,7 +317,7 @@ function ChannelRow({ ch, idx }: { ch: ChannelCfg; idx: number }) {
           value={ch.bias}
           onChange={(e) => setChannelBias(idx, Number(e.target.value))}
           className="flex-1 h-3 accent-accent"
-          title={`Bias: ${fmtNum(ch.bias)} div`}
+          title={`垂直位置: ${fmtNum(ch.bias)} div`}
         />
         <span className="text-[10px] font-mono text-text-secondary w-10 text-right">
           {fmtNum(ch.bias)}
@@ -340,7 +340,7 @@ function ChannelRow({ ch, idx }: { ch: ChannelCfg; idx: number }) {
 
       {/* ── V/div slider row ───────────────────────────── */}
       <div className="flex items-center gap-1 mt-1">
-        <LimitInput ch={ch} idx={idx} kind="vdiv" label="V" />
+        <LimitInput ch={ch} idx={idx} kind="vdiv" label="V/div" />
         <input
           type="range"
           min={0}
@@ -349,7 +349,7 @@ function ChannelRow({ ch, idx }: { ch: ChannelCfg; idx: number }) {
           value={vdivPct}
           onChange={handleVdivSlider}
           className="flex-1 h-3 accent-accent"
-          title={`V/div: ${fmtNum(ch.yRange)} ${ch.unit}`}
+          title={`电压/格: ${fmtNum(ch.yRange)} ${ch.unit}`}
         />
         <span className="text-[10px] font-mono text-text-secondary w-10 text-right">
           {fmtNum(ch.yRange)}
@@ -357,7 +357,7 @@ function ChannelRow({ ch, idx }: { ch: ChannelCfg; idx: number }) {
         <button
           onClick={() => setChannelRange(idx, 'vdiv', null)}
           className="text-[11px] text-text-secondary hover:text-text-primary px-0.5"
-          title="Reset V/div to defaults"
+          title="重置电压/格为默认"
         >
           \u21BA
         </button>
