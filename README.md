@@ -24,7 +24,7 @@ npm run dev                  # http://localhost:3000
 - Web Serial 直连串口,协议: **AI-Motor v1**(TI C2000 F280025C,115200 8N1;mode5/6/7/8 + 参数表 + 100Hz 遥测)
 - PMSM 参数辨识 `/param-est`(复用主串口 **mode7**;母线/极对数/最大测试电流 → Rs/Ld/Lq/Ls)
 - 亮/暗主题切换(默认亮色,侧栏/设置切换,持久化)
-- 手动控制 `/control`(mode5/6/7/8、启停、调速、30 条参数分组调控、CSV 记录、演示模式)
+- 手动控制 `/control`(对齐原上位机手动页:模式/启停/调速/参数分组/速度与 dq/三相波形/CSV/演示)
 - SVG 示波器实时波形 (100Hz 多通道 + 暂停/HEX 切换 + 通道量程/偏移调节)
 - 会话自动持久化 (localStorage) + HTML 报告导出
 - 双页面:聊天 `/` + 示波器 `/scope`

@@ -31,14 +31,17 @@ components/
     ├── TestControlPanel.tsx # 母线/极对数/最大测试电流 → 配置/开始/停止
     ├── EstimatedParamsPanel.tsx # Rs/Ld/Lq/Ls + ident stage/error
     └── DebugScope.tsx     # 实时 Id/Iq/Speed/stage
-└── control/     # 手动控制与参数调控
-    ├── ControlApp.tsx     # 页壳 + aiMotorBus 订阅
+└── control/     # 手动控制与参数调控(对齐原上位机手动页)
+    ├── ControlApp.tsx     # 页壳 + aiMotorBus 订阅 + 布局
     ├── ControlBar.tsx     # 连接/演示/mode/启停
-    ├── SpeedPanel.tsx     # 目标转速 + 给定/实测
+    ├── ControlSignals.tsx # 3 个实时卡片(估速/Iq/反电势)+ 状态
+    ├── ControlWaveforms.tsx # 速度/dq、三相;暂停/清空/导出
+    ├── useSampleHistory.ts # 100Hz 环形缓冲
     ├── ParamGroups.tsx    # 30 条参数分组、回读、二次确认
-    ├── LivePanel.tsx      # 12 个实时量
+    ├── SpeedPanel.tsx     # 目标转速 + 正转/反转/减速
     ├── ModelPanel.tsx     # 已应用模型/保存状态
-    └── RecordingPanel.tsx # 100Hz CSV 记录下载
+    ├── RecordingPanel.tsx # 连续 CSV 记录下载
+    └── ControlLog.tsx     # 操作日志
 ```
 
 ## WHERE TO LOOK

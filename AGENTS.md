@@ -71,7 +71,7 @@ Next.js (App Router, 纯客户端渲染)
 - **命令锁链**:`tool_call` → `lock.lock()` → `setPendingToolCall` → ChatPane `ConfirmCard` → 确认 → `aimotor/controller.sendCommand` → `ai_executed` 事件 → `lock.unlock()`。30s 超时自动取消。`get_status` 免确认自动执行。`set_motor_state`/`set_mode`/`set_param` 走 AI-Motor v1;AI 禁止修改安全锁定参数(6/13/24/42/51/52)。
 - **示波器**:100Hz `SAMPLE` → `scopeStore.appendAiSample`(6 通道:Iu/Speed/Id/Iq/EMF/I-F)→ `ScopeChart`(SVG rAF)。原始字节 → `hexBus` → `appendHex`。
 - **参数辨识**:`/param-est` 复用同一 AI-Motor 连接 → mode7(母线/极对数/最大测试电流 → `SET_MODE 7` → `ENABLE` → stage/error → 已应用模型 Rs/Ld/Lq/Ls);人工写参数走 `sendManualParam`,不受 AI 锁限制。
-- **手动控制**:`/control` → ControlBar(mode5/6/7/8、ENABLE/STOP)/SpeedPanel/ParamGroups(30 条参数按组调控)→ `sendCommand`/`sendManualParam`;CSV 记录订阅 `aiMotorBus`;演示模式由 controller 本地产生 SAMPLE/MODEL,不碰硬件。
+- **手动控制**:`/control` 对齐原上位机手动页:左「控制与参数」(mode/参数分组/速度正反转/启停)、右「3 卡片 + 状态 + 波形(速度/dq、三相)+ 暂停/清空/导出/连续记录 + 模型」、底部操作日志;波形订阅 `aiMotorBus` 100Hz 环形缓冲,SVG 自绘。
 - **持久化**:会话存 localStorage(`mototune.sessions`),示波器通道配置存 localStorage(`scope.*`),设置存 localStorage(`mototune.settings`);**知识库文件存 IndexedDB**(`mototune.knowledge`,`kb`+`kbFile` store,不入 localStorage)。
 - **设置响应式**:`useSettingsStore`(zustand)是设置唯一响应式源;`saveSettings`/`loadSettings` 都会写它。**组件订阅 store 而非直接读 localStorage**——否则改模型/供应商不刷新(曾 bug:Topbar 模型名残留 qwen)。
 - **空消息防御**:`sessionStore.applyLlmEvent` 对空 content 的 text 不新建消息;`ChatApp` tool_call 时不再追加空 text——避免"空气泡"。新增消息给 content 若为空串直接跳过。
