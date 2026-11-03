@@ -1,7 +1,7 @@
 # DESIGN.md — MOTOTUNE 界面参考(Codex 亮/暗双主题)
 
 **Reference:** Codex 桌面/网页 GUI(极简、发丝边框)。
-**Goal:** MOTOTUNE(聊天 `/`、示波器 `/scope`、知识库 `/knowledge`、参数辨识 `/param-est`、手动控制 `/control`)统一为 Codex 视觉;**默认亮色,支持亮/暗切换**;功能与逻辑零改动,仅布局与样式。
+**Goal:** MOTOTUNE(聊天 `/`、示波器 `/scope`、网口示波器 `/net-scope`、知识库 `/knowledge`、参数辨识 `/param-est`、手动控制 `/control`)统一为 Codex 视觉;**默认亮色,支持亮/暗切换**;功能与逻辑零改动,仅布局与样式。
 
 ## 1. Palette(tokens)
 
@@ -72,6 +72,7 @@
 | 急停 / 复位 | Composer 工具行 |
 | 锁链 / ConfirmCard | 消息区内 |
 | 示波器 | `/scope`:头 + 波形/HEX + 通道面板 |
+| 网口示波器 | `/net-scope`:左连接/通道/采集 + 右每通道 SVG 波形 |
 | 知识库 | `/knowledge`:建库 / 上传 / 删除 |
 
 ## 6. Constraints

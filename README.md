@@ -1,6 +1,6 @@
 # MOTOTUNE — AI 电驱控制系统 (Web 版)
 
-基于 Next.js 的电机控制 Web 应用:AI 对话控制 + Web Serial 直连电机 + SVG 示波器实时波形。
+基于 Next.js 的电机控制 Web 应用:AI 对话控制 + Web Serial 直连电机 + Tektronix TekHSI 网口示波器 + SVG 实时波形。
 
 > **分支说明**:本分支 `web/` 是重构分支 — 从 Electron 桌面版重构为 Next.js Web 版,先写齐 Web 功能,之后封装 Electron 桌面版。桌面版见 `main`/`arm64` 分支。
 
@@ -25,25 +25,29 @@ npm run dev                  # http://localhost:3000
 - PMSM 参数辨识 `/param-est`(复用主串口 **mode7**;母线/极对数/最大测试电流 → Rs/Ld/Lq/Ls)
 - 亮/暗主题切换(默认亮色,侧栏/设置切换,持久化)
 - 手动控制 `/control`(对齐原上位机手动页:模式/启停/调速/参数分组/速度与 dq/三相波形/CSV/演示)
+- 网口示波器 `/net-scope`(Tektronix TekHSI / gRPC:通道选择、单次/连续采集、每通道波形、CSV)
 - SVG 示波器实时波形 (100Hz 多通道 + 暂停/HEX 切换 + 通道量程/偏移调节)
 - 会话自动持久化 (localStorage) + HTML 报告导出
-- 双页面:聊天 `/` + 示波器 `/scope`
+- 多页面:聊天 `/` + 串口示波器 `/scope` + 网口示波器 `/net-scope` + 参数辨识 `/param-est` + 手动控制 `/control` + 知识库 `/knowledge`
 
 ## 架构
 
 ```
-Next.js (纯客户端渲染, 唯一服务端 = /api/llm 代理)
+Next.js (页面客户端渲染;服务端 = /api/llm 代理 + /api/tekhsi gRPC 代理)
   │
   ├── ChatApp (/)  ←── aiMotorBus / llmBus ──→  ScopeApp (/scope) / ParamEstApp (/param-est)
   │                       │
   │        lib/serial/aimotor/controller.ts (Web Serial · AI-Motor v1)
   │        lib/llm/llmClient.ts (SSE) → /api/llm → LLM (阿里云百炼兼容接口)
   │
+  ├── NetScopeApp (/net-scope) → /api/tekhsi → lib/tekhsi/client.ts (gRPC :5000) → Tektronix TekHSI
+  │
   └── 5 个 zustand store: session / motor / commandLock / scope / knowledge
 ```
 
 - **串口**:浏览器 Web Serial API 直连 DSP 下位机(当前为 TI C2000 F280025C),协议层纯 TS(`lib/serial/aimotor/*`,AI-Motor v1)
 - **参数辨识**:`/param-est` 复用同一串口的 mode7(母线/极对数/最大测试电流 → Rs/Ld/Lq/Ls);协议细节见 `docs/aimotor_protocol.md`
+- **网口示波器**:`/net-scope` → `/api/tekhsi` → TekHSI gRPC(4/5/6 系 MSO,默认明文 `:5000`);解码/时序见 `docs/tekhsi.md`
 - **LLM**:同源代理 `/api/llm` 保护 API key,SSE 流式,工具调用需人工确认
 - **事件**:统一事件总线(`lib/bus.ts`),替代原 Electron 版 IPC 广播
 

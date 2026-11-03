@@ -4,7 +4,7 @@
 **Branch:** fix/web-serial-reliability
 
 ## OVERVIEW
-React 组件层,分 `chat/`(聊天主界面)、`scope/`(示波器)、`param-est/`(PMSM mode7 辨识)、`control/`(手动控制与参数调控)四个独立域。**组件只经 store + bus 读数据,不经 window.api/直接串口。**
+React 组件层,分 `chat/`(聊天主界面)、`scope/`(AI-Motor 串口示波器)、`net-scope/`(TekHSI 网口示波器)、`param-est/`(PMSM mode7 辨识)、`control/`(手动控制与参数调控)五个独立域。**组件只经 store + bus 读数据,不经 window.api/直接串口;网口示波器只经 `/api/tekhsi`。**
 
 ## STRUCTURE
 ```
@@ -25,6 +25,11 @@ components/
 │   ├── ChannelPanel.tsx   # 每通道 enable/label/bias/V-div/色 + 统计
 │   ├── HexView.tsx        # 原始字节 HEX 视图
 │   └── PauseToggle.tsx / HexToggle.tsx
+├── net-scope/   # TekHSI 网口示波器(/net-scope)
+│   ├── NetScopeApp.tsx    # 连接/通道/采集/CSV 布局
+│   ├── useTekHsi.ts       # /api/tekhsi 调用 + 连续采集 1Hz
+│   ├── NetScopeChart.tsx  # 每通道 SVG 波形(时间轴/触发线)
+│   └── NetScopeMeta.tsx   # 点数/Δt/触发索引/缩放元数据
 ├── param-est/   # PMSM 参数辨识(mode7)
     ├── ParamEstApp.tsx    # 页壳 + aiMotorBus 订阅
     ├── ConnectionBar.tsx  # 复用主控制器连接/状态
@@ -49,6 +54,7 @@ components/
 |------|----------|-------|
 | 改聊天布局 | `chat/ChatApp.tsx` | 此处挂弹窗与 Sidebar 回调 |
 | 改示波器数据源 | `scope/ScopeApp.tsx` | `ai_sample` → `appendAiSample`(100Hz) |
+| 改网口示波器 | `net-scope/` | TekHSI `/api/tekhsi`;与串口 `/scope` 无关 |
 | 改参数辨识 | `param-est/` | mode7 配置/启停/结果;复用 `aiMotorBus` |
 | 改手动控制/调参 | `control/` | mode/启停/调速/参数分组/CSV;复用 `aiMotorBus` |
 | 改消息/确认 | `chat/ChatPane.tsx` + `chat/ConfirmCard.tsx` | tool_call 锁链 |
@@ -59,6 +65,7 @@ components/
 - **测试定位**:弹窗 overlay 有 `data-testid="search-overlay"`/`search-result`,供 e2e 区分弹窗与侧栏同文本项
 - **侧栏品牌**:顶部白色徽章 FluxPilot 商标(图标 `trademark_image.png` + 文字 `trademark.png`);侧栏为 Codex 固定宽(240px,无拖拽调宽),亮/暗切换、折叠/搜索按钮为内联 SVG 图标、位于品牌行右侧
 - **ScopeApp 订阅**:`ai_sample`(100Hz)→ `scopeStore.appendAiSample`(6 通道 Iu/Speed/Id/Iq/EMF/I-F);顶部数字来自 `motorStore`。`/param-est` 复用同一 `aiMotorBus`(mode7)。
+- **网口示波器独立**:`/net-scope` 不订阅 `aiMotorBus`,只调 `POST /api/tekhsi`;不要把 TekHSI 数据混进 `scopeStore`(时间基/触发语义不同)。
 
 ## ANTI-PATTERNS
 - **不要用原生 `<a href>` 跨 chat/scope 导航** — 会整页刷新(必须 `next/link`)

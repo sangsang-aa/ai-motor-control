@@ -24,6 +24,12 @@ lib/
 ├── llm/
 │   ├── llmClient.ts      # SSE 解析 + abort(浏览器端)
 │   └── tools.ts          # 工具定义 TOOLS + 系统提示词 SYSTEM_PROMPT(前后端共用)
+├── tekhsi/
+│   ├── client.ts         # gRPC 采集(server-only):Connect/GetHeader/GetWaveform
+│   ├── decode.ts         # int8/int16/float32 解码 + y/x 缩放 + 抽点
+│   ├── csv.ts            # 长格式 CSV(channel,time_s,value)
+│   ├── types.ts          # TekChannel/TekAcquireResult 等共享类型
+│   └── TekHighspeedServer.proto # 官方 proto 字段还原
 └── stores/
     ├── sessionStore.ts   # 会话(localStorage mototune.sessions)
     ├── motorStore.ts     # 电机状态(AiMotorEvent → sample/model/config)
@@ -38,6 +44,9 @@ lib/
 | 改参数/安全锁 | `serial/aimotor/params.ts` | 与固件 `host_parameters.inc` 对齐 |
 | 改连接/重试/超时 | `serial/aimotor/controller.ts` | HELLO/心跳/单命令在途/STOP |
 | 改 LLM 工具/提示词 | `llm/tools.ts` | 前后端共用,`app/api/llm/route.ts` 注入 |
+| 改 TekHSI 采集/时序 | `tekhsi/client.ts` | server-only;`host:5000` gRPC;见 `docs/tekhsi.md` |
+| 改波形解码/缩放 | `tekhsi/decode.ts` | `y=raw*verticalspacing+verticaloffset`;`x=(i-horizontalzeroindex)*horizontalspacing` |
+| 改网口示波器 API | `app/api/tekhsi/route.ts` | `connect/acquire/disconnect/status`;Node runtime |
 | 加自定义事件 | `bus.ts` | 新增 bus 类型须同步 `types.ts` |
 | 改状态管理 | `stores/*.ts` | zustand,持久化用 localStorage |
 | 改设置/语言 | `settings.ts` + `i18n.ts` | 语言 key 在 `translations` 字典,需 zh/en 同步 |
@@ -48,6 +57,7 @@ lib/
 - **安全锁**:AI 禁止修改 6 强拖上限 / 13 闭环 Iq / 24 Iq 范围 / 42 辨识电流 / 51 参数组 / 52 自动应用;人工辨识页用 `sendManualParam`。
 - **转速上限 6000 RPM**(clamp)。
 - **stores 持久化 key**:会话 `mototune.sessions`,示波器通道 `scope.*`,设置 `mototune.settings`。
+- **TekHSI**:`tekhsi/client.ts` 只能在 Node runtime(`/api/tekhsi`)使用,不得被客户端组件 import;浏览器端只用 `tekhsi/types.ts`/`csv.ts`/`decode.ts`。采集时序 `Connect → RequestAvailableNames → [RequestNewSequence] → WaitForDataAccess → GetHeader + GetWaveform → FinishedWithDataAccess`。
 
 ## ANTI-PATTERNS
 - **不要绕过 `bus`/store 直接跨层传值** — 组件↔组件只经 store

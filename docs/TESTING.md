@@ -6,8 +6,8 @@
 
 | 层 | 工具 | 目录 | 覆盖 |
 |---|---|---|---|
-| 单元测试 | Vitest | `unit/` | AI-Motor 帧/CRC/参数校验、LLM SSE 解析、会话/示波器/命令锁 store、知识库(纯逻辑) |
-| E2E 测试 | Playwright | `e2e/` | 页面渲染/交互、对话、tool calling、AI-Motor 串口/握手、100Hz 示波器、mode7 辨识 |
+| 单元测试 | Vitest | `unit/` | AI-Motor 帧/CRC/参数校验、LLM SSE 解析、会话/示波器/命令锁 store、知识库(纯逻辑)、TekHSI 解码/gRPC 时序 |
+| E2E 测试 | Playwright | `e2e/` | 页面渲染/交互、对话、tool calling、AI-Motor 串口/握手、100Hz 示波器、mode7 辨识、TekHSI 网口示波器 |
 
 ## 运行方式
 
@@ -130,6 +130,19 @@ npm test                 # 单元测试
 | 演示 + CSV | 演示产生 100Hz 数据;记录后下载 CSV |
 | 分组/模式单测 | 30 条参数分组、paramMode、安全标记 |
 
+### 9. 网口示波器(/net-scope,TekHSI)
+
+| 用例 | 验收标准 |
+|---|---|
+| 侧栏入口 | 聊天侧栏 `/net-scope` 可进入,页面标题「网口示波器」 |
+| 连接/通道 | 填 `IP:5000` 连接;显示 `已连接`、通道复选框(ch1/ch2) |
+| 采集/波形 | 单次采集后每通道 SVG 出现波形 `path`,显示点数/Δt/单位 |
+| CSV | 导出长格式 CSV,表头 `channel,time_s,value`,含所选通道 |
+| 连续采集 | 勾选「连续采集(1 Hz)」后持续请求;取消后停止 |
+| 错误处理 | 连接失败显示 `net-error`,状态保持未连接 |
+| 解码单测 | int8/int16/float32 小端、`y=raw*k+b`、时间轴、抽点、CSV(unit/tekhsiDecode) |
+| 路由/时序 | 真实 `/api/tekhsi` + fake gRPC server:Connect/RequestAvailableNames/WaitForDataAccess/GetHeader/GetWaveform/FinishedWithDataAccess(e2e/tekhsi-api) |
+
 ## Mock 方案(测试不依赖真实硬件/真实 LLM)
 
 - **LLM**:Playwright `page.route('**/api/llm')` 拦截,返回固定 SSE 流(text / tool_call / error)。见 `e2e/chat.spec.ts`、`e2e/tool-call.spec.ts`。
@@ -139,6 +152,7 @@ npm test                 # 单元测试
   - 写入记录到 `window.__aiWrites`,`decodeAiCommands()` 供断言
   - 选项:`dropFirstAck`(首包丢失)、`noHelloAckCount`(握手失败)、`silent`、`mode7Error`
 - **协议层**:单测 `lib/serial/aimotor/{protocol,params}.ts`(CRC/帧/解码/参数校验),与 `docs/aimotor_protocol.md` 对齐。
+- **网口示波器**:UI 用 `page.route('**/api/tekhsi')` 返回固定 connect/acquire JSON;路由本身用 `e2e/tekhsi-api.spec.ts` 在测试进程起 fake gRPC server(`@grpc/grpc-js`),再经真实 `/api/tekhsi` 连接,验证完整时序与解码。真实示波器验收需 4/5/6 系 MSO + TekHSI。
 
 ## 关键约定(防止回归)
 

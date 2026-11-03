@@ -21,30 +21,34 @@
 1. **先写齐 Web 版基本功能,再封装 Electron 桌面版** — 这是本分支的最终路线:当前阶段只做 Web(Next.js),功能齐备后加 Electron 壳层打包为桌面应用。
 2. **砍掉 Python 后端** — 串口协议层已用纯 TS 重写(`lib/serial/aimotor/*`,AI-Motor v1),浏览器通过 **Web Serial API** 直连 DSP 下位机(当前为 **TI C2000 F280025C** 开发板),不再需要 pyserial/numpy 子进程。
 3. **LLM 走同源代理** — `/api/llm` 服务端代理保护 API key + 绕 CORS,key 只存 `.env.local`(不入库),浏览器永不接触。
-4. **纯客户端渲染** — 页面全部 `'use client'`,禁止新增 SSR/Server Component 依赖(便于后续 Electron 封装,见下)。
+4. **页面纯客户端渲染** — 页面全部 `'use client'`;服务端只保留 `/api/llm` 与 `/api/tekhsi`(TekHSI gRPC 代理)两个 Node 路由,禁止新增 SSR/Server Component 页面依赖(便于后续 Electron 封装,见下)。
 
 **后续 Electron 封装路线(完成 Web 版后):**
 
 - 方案 A(推荐):`next build` + `next start` 内置运行,窗口加载 localhost:3000
-- 方案 B:`next export` 静态导出 + 主进程直接加载,但 `/api/llm` 代理需搬入 Electron 主进程
+- 方案 B:`next export` 静态导出 + 主进程直接加载,但 `/api/llm` 与 `/api/tekhsi` 代理需搬入 Electron 主进程
 - 串口:封装时新增 `ElectronSerialAdapter`(node-serialport via IPC)并先提取适配器接口，再替换 `lib/serial/aimotor/controller.ts` 的 Web Serial I/O；UI/store 层不得直接依赖具体串口实现
+- 网口示波器:TekHSI gRPC 客户端留在 Node 主进程/Next 路由,浏览器只走同源 HTTP
 
 ## 架构
 
 ```
-Next.js (App Router, 纯客户端渲染)
+Next.js (App Router, 页面客户端渲染 + Node API 路由)
 ├── app/
 │   ├── page.tsx          → ChatApp(聊天主页, /)
 │   ├── scope/page.tsx    → ScopeApp(示波器, /scope)
+│   ├── net-scope/page.tsx→ NetScopeApp(网口示波器 TekHSI, /net-scope)
 │   ├── knowledge/page.tsx→ KnowledgeApp(知识库, /knowledge)
 │   ├── param-est/page.tsx→ ParamEstApp(PMSM 参数辨识 mode7, /param-est)
 │   ├── control/page.tsx  → ControlApp(手动控制 + 参数调控, /control)
-│   └── api/llm/route.ts  → LLM 代理(唯一服务端代码)
+│   ├── api/llm/route.ts  → LLM 代理
+│   └── api/tekhsi/route.ts → TekHSI gRPC 代理(Node runtime,网口示波器)
 ├── components/chat/      → ChatApp/Topbar/Sidebar/ChatPane/Composer/ConfirmCard/EStop/横幅 + SettingsPanel/SearchDialog/ConversationSettingsPanel
 ├── components/knowledge/ → KnowledgeApp(建库/上传)/KnowledgePicker(投送选择)
 ├── components/scope/     → ScopeApp(带"实时数据"区)/ScopeChart/ChannelPanel/HexView/Pause/HexToggle
+├── components/net-scope/ → NetScopeApp/NetScopeChart/NetScopeMeta/useTekHsi(TekHSI 波形采集)
 ├── components/param-est/ → ParamEstApp/ConnectionBar/TestControlPanel/EstimatedParamsPanel/DebugScope(mode7)
-├── components/control/   → ControlApp/ControlBar/SpeedPanel/ParamGroups/LivePanel/ModelPanel/RecordingPanel
+├── components/control/   → ControlApp/ControlBar/ControlSignals/ControlWaveforms/ParamGroups/SpeedPanel/ModelPanel/RecordingPanel/ControlLog
 └── lib/
     ├── types.ts          → 跨层类型(LlmEvent/Session/Message/MotorStatus/KnowledgePayload + AiMotorEvent)
     ├── bus.ts            → 事件总线:llmBus(LLM)/hexBus(原始字节)/aiMotorBus(主串口)
@@ -55,6 +59,9 @@ Next.js (App Router, 纯客户端渲染)
     ├── serial/aimotor/params.ts     → 允许参数表 + 安全锁 + 范围校验
     ├── serial/aimotor/controller.ts → Web Serial + HELLO/心跳/ACK 重试/STOP/100Hz 遥测
     ├── serial/aimotor/control.ts    → 参数分组 / paramMode / 安全标记
+    ├── tekhsi/client.ts  → TekHSI gRPC 采集(Connect/WaitForDataAccess/GetHeader/GetWaveform)
+    ├── tekhsi/decode.ts  → int8/int16/float32 → 缩放/时间轴/抽点
+    ├── tekhsi/TekHighspeedServer.proto → 官方 proto 字段还原
     ├── llm/llmClient.ts  → SSE 解析 + abort(浏览器端)
     ├── llm/tools.ts      → 工具定义 TOOLS + 系统提示词 SYSTEM_PROMPT(前后端共用)
     ├── knowledge/db.ts   → 知识库 IndexedDB(原生,无依赖);context.ts 汇总+预算;extract.ts pdfjs 文本/图片
@@ -72,6 +79,7 @@ Next.js (App Router, 纯客户端渲染)
 - **示波器**:100Hz `SAMPLE` → `scopeStore.appendAiSample`(6 通道:Iu/Speed/Id/Iq/EMF/I-F)→ `ScopeChart`(SVG rAF)。原始字节 → `hexBus` → `appendHex`。
 - **参数辨识**:`/param-est` 复用同一 AI-Motor 连接 → mode7(母线/极对数/最大测试电流 → `SET_MODE 7` → `ENABLE` → stage/error → 已应用模型 Rs/Ld/Lq/Ls);人工写参数走 `sendManualParam`,不受 AI 锁限制。
 - **手动控制**:`/control` 对齐原上位机手动页:左「控制与参数」(mode/参数分组/速度正反转/启停)、右「3 卡片 + 状态 + 波形(速度/dq、三相)+ 暂停/清空/导出/连续记录 + 模型」、底部操作日志;波形订阅 `aiMotorBus` 100Hz 环形缓冲,SVG 自绘。
+- **网口示波器**:`/net-scope` → `POST /api/tekhsi`(connect/acquire/disconnect)→ `lib/tekhsi/client.ts` gRPC `host:5000` → `Connect/RequestAvailableNames/WaitForDataAccess/GetHeader/GetWaveform/FinishedWithDataAccess`;`decode.ts` 按 `sourcewidth` 解 int8/int16/float32,`y=raw*verticalspacing+verticaloffset`,`x=(i-horizontalzeroindex)*horizontalspacing`;结果存组件本地 state,CSV 长格式导出。与 AI-Motor 串口互不影响。
 - **持久化**:会话存 localStorage(`mototune.sessions`),示波器通道配置存 localStorage(`scope.*`),设置存 localStorage(`mototune.settings`);**知识库文件存 IndexedDB**(`mototune.knowledge`,`kb`+`kbFile` store,不入 localStorage)。
 - **设置响应式**:`useSettingsStore`(zustand)是设置唯一响应式源;`saveSettings`/`loadSettings` 都会写它。**组件订阅 store 而非直接读 localStorage**——否则改模型/供应商不刷新(曾 bug:Topbar 模型名残留 qwen)。
 - **空消息防御**:`sessionStore.applyLlmEvent` 对空 content 的 text 不新建消息;`ChatApp` tool_call 时不再追加空 text——避免"空气泡"。新增消息给 content 若为空串直接跳过。
@@ -107,6 +115,7 @@ npm run test:unit / test:e2e / test:all   # 测试(playwright 起 3100,非 3000)
 - **LLM 配置推荐走设置面板**(侧栏「设置」→ AI 供应商/Base URL/API Key/模型,存 localStorage),**无需 .env.local**。`/api/llm` 优先用请求带的 `body.config`(设置),env 仅作可选回退。
 - `.env.local`/`.env.example` 不入库;若用服务端默认配置(如生产),复制 `.env.example` => `.env.local` 填真实值。LLM 配置改动只改这两个文件,不写死代码。
 - `next.config.mjs` 说明:Web 版需 `/api/llm`,不能 `next export`(封装 Electron 时再定 A/B 方案)。
+- **TekHSI 网口示波器**:`/api/tekhsi` 必须 `export const runtime = 'nodejs'`;`@grpc/grpc-js`/`@grpc/proto-loader` 已在 `next.config.mjs` 的 `serverExternalPackages` 排除打包。示波器需为 4/5/6 系 MSO 且开启 TekHSI,默认明文 `:5000`;浏览器不能直接开 gRPC,必须经该路由。协议细节见 `docs/tekhsi.md`。
 - **知识库仅客户端**:PDF 文本用 `pdfjs-dist`(legacy build,`lib/knowledge/extract.ts` 动态 import + `new URL(worker, import.meta.url)`);文件存浏览器 **IndexedDB**。二者在服务端(`/api/llm`)不可用——内容由客户端解析后随请求体传给代理。
 - **Next dev 已知坑**:改代码时 `Fast Refresh` 触发整页 reload;若 reload 窗口期访问 `/api/llm`,会命中 `route.js` ENOENT → `POST /api/llm 500` / `Loading chunk ... failed`。症状是"输入请求 → 强制刷新 → 再输入报错"。**修复**:kill 所有 next 进程 → `rm -rf .next` → 重启 dev → 立即连续 curl `/api/llm` 触发编译。**根治**:稳定阶段用 `npm run build && npm start`(生产一次性生成所有 route.js,无按需编译问题)。
 
@@ -131,9 +140,9 @@ npx vitest run unit/aimotorProtocol.spec.ts          # 单测单个文件
 npm run test:all                                     # 单测 + E2E 全量
 ```
 
-- **单测(Vitest)**:`unit/`(aimotorProtocol/aimotorParams/aimotorStore/llmClient/sessionStore/scopeStore/commandLockStore/knowledge/knowledgeContext/settings),jsdom 环境。
-- **E2E(Playwright)**:`playwright.config.ts` 用 `webServer` 起 `next dev -p 3100`;`baseURL=http://localhost:3100`。**必须 mock 但勿碰真实 LLM/串口**:LLM 用 `page.route('**/api/llm')`,串口用 `e2e/mockAiMotorSerial.ts` 的 `fakeAiMotorSerial()`(AI-Motor v1 从站:HELLO/ACK/10ms SAMPLE/100ms MODEL/CONFIG)。`dropFirstAck`/`noHelloAckCount` 用于握手重试与重连测试。知识库用真实 IndexedDB(`setInputFiles` 注入内存 PNG)。
-- **通信改动的最低覆盖**:改帧/CRC/解码时更新 `unit/aimotorProtocol.spec.ts`；改握手/重试/超时逻辑时更新 `e2e/serial-recovery.spec.ts`；保留 `serial-scope.spec.ts`、`tool-call.spec.ts`、`param-est.spec.ts` 的直连模拟覆盖。浏览器 mock 不能替代实板验收。
+- **单测(Vitest)**:`unit/`(aimotorProtocol/aimotorParams/aimotorStore/llmClient/sessionStore/scopeStore/commandLockStore/knowledge/knowledgeContext/settings/tekhsiDecode/tekhsiClient),jsdom 环境;`tekhsiClient.spec.ts` 用 `// @vitest-environment node` 起 fake gRPC server。
+- **E2E(Playwright)**:`playwright.config.ts` 用 `webServer` 起 `next dev -p 3100`;`baseURL=http://localhost:3100`。**必须 mock 但勿碰真实 LLM/串口**:LLM 用 `page.route('**/api/llm')`,串口用 `e2e/mockAiMotorSerial.ts` 的 `fakeAiMotorSerial()`(AI-Motor v1 从站:HELLO/ACK/10ms SAMPLE/100ms MODEL/CONFIG)。`dropFirstAck`/`noHelloAckCount` 用于握手重试与重连测试。知识库用真实 IndexedDB(`setInputFiles` 注入内存 PNG)。网口示波器 UI 用 `page.route('**/api/tekhsi')` mock;路由本身由 `e2e/tekhsi-api.spec.ts` 起 fake gRPC server 走真实 `/api/tekhsi` 验证。
+- **通信改动的最低覆盖**:改帧/CRC/解码时更新 `unit/aimotorProtocol.spec.ts`；改握手/重试/超时逻辑时更新 `e2e/serial-recovery.spec.ts`；保留 `serial-scope.spec.ts`、`tool-call.spec.ts`、`param-est.spec.ts` 的直连模拟覆盖。浏览器 mock 不能替代实板验收。改 TekHSI 解码/时序时更新 `unit/tekhsiDecode.spec.ts` + `unit/tekhsiClient.spec.ts`；路由契约用 `e2e/tekhsi-api.spec.ts`。
 - **约定**:改布局后检查 e2e 选择器(发送钮 `.composer-send`、侧栏项 `.sb-item`、折叠 title、"新建对话"按钮);侧栏已无拖拽调宽(Codex 固定宽 240px)。
 - Playwright 用 Chromium headless;环境里有 Next dev overlay 可能拦截点击,弹窗/折叠按钮定位用 `dispatchEvent('click')` 或 `data-testid` 更稳。
 
