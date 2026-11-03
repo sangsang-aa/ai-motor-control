@@ -24,6 +24,7 @@ const Ico = {
   search: <svg {...ICON_PROPS}><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>,
   panel: <svg {...ICON_PROPS}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /></svg>,
   scope: <svg {...ICON_PROPS}><path d="M3 12h3l2-6 3 12 2.5-8 1.5 2h6" /></svg>,
+  netScope: <svg {...ICON_PROPS}><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M7 20h10M12 16v4" /><path d="M7 9h3l2-2 2 4 2-2h2" /></svg>,
   paramEst: <svg {...ICON_PROPS}><path d="M4 7h16M4 17h16" /><circle cx="9" cy="7" r="2" /><circle cx="15" cy="17" r="2" /></svg>,
   control: <svg {...ICON_PROPS}><circle cx="12" cy="12" r="7" /><path d="M12 12l3-3" /></svg>,
   sun: <svg {...ICON_PROPS}><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>,
@@ -62,6 +63,7 @@ export const Sidebar: React.FC<Props> = ({ onOpenSettings, onOpenSearch }) => {
         <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} style={{ color: 'var(--cx-muted)', cursor: 'pointer', background: 'none', border: 'none', display: 'flex' }} title={theme === 'light' ? '切换到暗色' : '切换到亮色'} data-testid="theme-toggle">{theme === 'light' ? Ico.moon : Ico.sun}</button>
         <button onClick={onOpenSearch} style={{ color: 'var(--cx-muted)', cursor: 'pointer', background: 'none', border: 'none', display: 'flex' }} title={t(lang, 'search')}>{Ico.search}</button>
         <Link href="/scope" style={{ color: 'var(--cx-muted)', cursor: 'pointer', textDecoration: 'none', display: 'flex' }} title={t(lang, 'scope')}>{Ico.scope}</Link>
+        <Link href="/net-scope" style={{ color: 'var(--cx-muted)', cursor: 'pointer', textDecoration: 'none', display: 'flex' }} title={t(lang, 'netScope')}>{Ico.netScope}</Link>
         <Link href="/knowledge" style={{ color: 'var(--cx-muted)', cursor: 'pointer', textDecoration: 'none', display: 'flex' }} title={t(lang, 'knowledge')}>{Ico.book}</Link>
         <Link href="/param-est" style={{ color: 'var(--cx-muted)', cursor: 'pointer', textDecoration: 'none', display: 'flex' }} title={t(lang, 'paramEst')}>{Ico.paramEst}</Link>
         <Link href="/control" style={{ color: 'var(--cx-muted)', cursor: 'pointer', textDecoration: 'none', display: 'flex' }} title={t(lang, 'control')}>{Ico.control}</Link>
@@ -121,6 +123,9 @@ export const Sidebar: React.FC<Props> = ({ onOpenSettings, onOpenSearch }) => {
         <div style={{ paddingBottom: 6 }}>
           <Link href="/scope" className="sb-item" style={{ textDecoration: 'none' }}>
             <span className="sb-icon">{Ico.scope}</span>{t(lang, 'scope')}
+          </Link>
+          <Link href="/net-scope" className="sb-item" style={{ textDecoration: 'none' }}>
+            <span className="sb-icon">{Ico.netScope}</span>{t(lang, 'netScope')}
           </Link>
           <Link href="/knowledge" className="sb-item" style={{ textDecoration: 'none' }}>
             <span className="sb-icon">{Ico.book}</span>{t(lang, 'knowledge')}

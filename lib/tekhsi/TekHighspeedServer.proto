@@ -1,0 +1,182 @@
+// Tektronix TekHSI gRPC schema.
+// Reconstructed from the official TekHSI Python package's serialized descriptor
+// (src/tekhsi/_tek_highspeed_server_pb2.py). Field numbers/types match the
+// generated Python bindings; keep this file in sync with the scope firmware.
+syntax = "proto3";
+
+package Tekscope;
+
+enum ConnectStatus {
+  CONNECTSTATUS_UNSPECIFIED = 0;
+  CONNECTSTATUS_SUCCESS = 1;
+  CONNECTSTATUS_NOT_CONNECTED_FAILURE = 2;
+  CONNECTSTATUS_OUTSIDE_SEQUENCE_FAILURE = 3;
+  CONNECTSTATUS_TIMEOUT_FAILURE = 4;
+  CONNECTSTATUS_INUSE_FAILURE = 5;
+  CONNECTSTATUS_UNKNOWN_FAILURE = 6;
+}
+
+enum WfmReplyStatus {
+  WFMREPLYSTATUS_UNSPECIFIED = 0;
+  WFMREPLYSTATUS_SUCCESS = 1;
+  WFMREPLYSTATUS_SOURCENAME_MISSING_FAILURE = 2;
+  WFMREPLYSTATUS_OUTSIDE_SEQUENCE_FAILURE = 3;
+  WFMREPLYSTATUS_NO_CONNECTION_FAILURE = 4;
+  WFMREPLYSTATUS_TYPE_MISMATCH_FAILURE = 5;
+  WFMREPLYSTATUS_INVALID_FRAME_INDEX = 6;
+}
+
+enum WfmPairType {
+  WFMPAIRTYPE_UNSPECIFIED = 0;
+  WFMPAIRTYPE_NONE = 1;
+  WFMPAIRTYPE_PAIR = 2;
+}
+
+enum WfmType {
+  WFMTYPE_UNSPECIFIED = 0;
+  WFMTYPE_ANALOG_8 = 1;
+  WFMTYPE_ANALOG_16 = 2;
+  WFMTYPE_ANALOG_FLOAT = 3;
+  WFMTYPE_DIGITAL_8 = 4;
+  WFMTYPE_DIGITAL_16 = 5;
+  WFMTYPE_ANALOG_16_IQ = 6;
+  WFMTYPE_ANALOG_32_IQ = 7;
+}
+
+message ConnectRequest {
+  string name = 1;
+}
+
+message ConnectReply {
+  ConnectStatus status = 1;
+  uint32 protocol_version = 2;
+  uint32 capabilities = 3;
+}
+
+message AvailableNamesReply {
+  ConnectStatus status = 1;
+  repeated string symbolnames = 2;
+}
+
+message WaveformRequest {
+  string sourcename = 1;
+  uint32 chunksize = 2;
+  uint32 reply_content_mask = 3;
+  uint32 frame_index = 4;
+  uint32 start_frame = 5;
+  uint32 end_frame = 6;
+  bool stream_all_frames = 7;
+  bool use_explicit_frame_index = 8;
+}
+
+message SParam {
+  double reference_impedance = 1;
+  repeated double data = 2;
+  repeated double frequencies = 3;
+  repeated double ports = 4;
+}
+
+message ProbeInfo {
+  string probe_name = 1;
+  string probe_tip = 2;
+  double probe_attenuation = 3;
+  SParam probe_sparam = 4;
+  repeated double filter = 5;
+}
+
+message WaveformHeader {
+  string sourcename = 1;
+  uint32 sourcewidth = 2;
+  uint64 dataid = 3;
+  uint64 transid = 4;
+  string horizontalUnits = 5;
+  double horizontalspacing = 6;
+  double horizontalzeroindex = 7;
+  double horizontalfractionalzeroindex = 8;
+  uint64 noofsamples = 9;
+  uint32 chunksize = 10;
+  WfmType wfmtype = 11;
+  uint32 bitmask = 12;
+  WfmPairType pairtype = 13;
+  string verticalunits = 14;
+  double verticalspacing = 15;
+  double verticaloffset = 16;
+  double iq_centerFrequency = 17;
+  double iq_fftLength = 18;
+  double iq_rbw = 19;
+  double iq_span = 20;
+  string iq_windowType = 21;
+  bool hasdata = 22;
+  uint32 num_frames = 23;
+  repeated FrameInfo frame_info = 24;
+  uint32 current_frame_index = 25;
+  ProbeInfo probe_details = 26;
+  SParam channel_sparam = 27;
+}
+
+message FrameInfo {
+  uint32 frame_index = 1;
+  double time_offset = 2;
+  uint32 gmt_sec = 3;
+  double fract_sec = 4;
+  bool is_summary_frame = 5;
+  uint32 real_point_offset = 6;
+  double frame_duration_sec = 7;
+}
+
+message FrameBoundary {
+  FrameInfo frame_info = 1;
+}
+
+message NormalizedReply {
+  WfmReplyStatus status = 1;
+  DataOrHeaderAccess headerordata = 2;
+  FrameBoundary frame_boundary = 3;
+
+  message WaveformSampleChunk {
+    repeated float data = 1;
+  }
+
+  message DataOrHeaderAccess {
+    oneof value {
+      WaveformHeader header = 1;
+      WaveformSampleChunk chunk = 2;
+    }
+  }
+}
+
+message RawReply {
+  WfmReplyStatus status = 1;
+  DataOrHeaderAccess headerordata = 2;
+  FrameBoundary frame_boundary = 3;
+
+  message WaveformSampleByteChunk {
+    bytes data = 1;
+  }
+
+  message DataOrHeaderAccess {
+    oneof value {
+      WaveformHeader header = 1;
+      WaveformSampleByteChunk chunk = 2;
+    }
+  }
+}
+
+service Connect {
+  rpc Connect(ConnectRequest) returns (ConnectReply);
+  rpc Disconnect(ConnectRequest) returns (ConnectReply);
+  rpc RequestNewSequence(ConnectRequest) returns (ConnectReply);
+  rpc RequestAvailableNames(ConnectRequest) returns (AvailableNamesReply);
+  rpc WaitForDataAccess(ConnectRequest) returns (ConnectReply);
+  rpc FinishedWithDataAccess(ConnectRequest) returns (ConnectReply);
+}
+
+service NormalizedData {
+  rpc GetWaveform(WaveformRequest) returns (stream NormalizedReply);
+  rpc GetHeader(WaveformRequest) returns (NormalizedReply);
+}
+
+service NativeData {
+  rpc GetWaveform(WaveformRequest) returns (stream RawReply);
+  rpc GetHeader(WaveformRequest) returns (RawReply);
+}
