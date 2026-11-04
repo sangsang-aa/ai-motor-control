@@ -51,4 +51,4 @@ Next.js (页面客户端渲染;服务端 = /api/llm 代理 + /api/tekhsi gRPC �
 - **LLM**:同源代理 `/api/llm` 保护 API key,SSE 流式,工具调用需人工确认
 - **事件**:统一事件总线(`lib/bus.ts`),替代原 Electron 版 IPC 广播
 
-详见 AGENTS.md（含重构目的与 Electron 封装路线）；完整交接文档见 `docs/HANDOVER.md`。
+详见 AGENTS.md（含重构目的与 Electron 封装路线）；完整交接文档见 `docs/HANDOVER.md`，按文件结构的代码文档见 `docs/CODE_STRUCTURE.md`。

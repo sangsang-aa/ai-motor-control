@@ -6,7 +6,7 @@
 ## HIERARCHY
 - `lib/AGENTS.md` — 核心逻辑域(串口/LLM/store/设置)
 - `components/AGENTS.md` — 业务组件域(chat/scope)
-- `docs/` — 说明文档区块(HANDOVER 交接/tekhsi 网口/DESIGN/TESTING/aimotor 协议/AI 调参记录/界面参考)
+- `docs/` — 说明文档区块(HANDOVER 交接/CODE_STRUCTURE 文件结构/tekhsi 网口/DESIGN/TESTING/aimotor 协议/AI 调参记录/界面参考)
 
 ---
 

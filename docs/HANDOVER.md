@@ -6,6 +6,8 @@
 > **目标设备**：TI C2000 F280025C（AI-Motor v1 串口）+ Tektronix 4/5/6 系 MSO（TekHSI 网口）
 > **浏览器**：Chrome / Edge（Web Serial 必需）
 > **更新日期**：2026-11-03
+>
+> 按文件/目录组织的代码结构文档见 `docs/CODE_STRUCTURE.md`。
 
 ---
 
