@@ -1,18 +1,18 @@
 ---
 name: ai-coding-guard
-description: "Use ONLY for the ai_motor_control / MOTOTUNE (web) project before any code change, feature work, refactor, or bug fix. Enforces a propose -> approve -> implement -> test loop: keep each module isolated, require a matching test for every functional module, tell the user the logic BEFORE writing anything, never edit without explicit approval, and raise an interference report instead of touching another feature's code or files. Triggers: '实现功能', '修复bug', '改代码', '重构', '新增功能', '加个功能', '改一下', 'motor control', 'MOTOTUNE', 'modbus', '示波器', '串口', 'LLM tool', 'ConfirmCard'. Gate: ai_motor_control, 模块隔离, 先讲逻辑, 不得擅自编写, 干涉报告."
+description: "Use ONLY for the ai_motor_control / MOTOTUNE (web) project before any code change, feature work, refactor, or bug fix. Enforces a propose -> approve -> implement -> test loop: keep each module isolated, require a matching test for every functional module, tell the user the logic BEFORE writing anything, never edit without explicit approval, and raise an interference report instead of touching another feature's code or files. Triggers: '实现功能', '修复bug', '改代码', '重构', '新增功能', '加个功能', '改一下', 'motor control', 'MOTOTUNE', 'AI-Motor', 'TekHSI', '示波器', '串口', 'LLM tool', 'ConfirmCard'. Gate: ai_motor_control, 模块隔离, 先讲逻辑, 不得擅自编写, 干涉报告."
 license: MIT
 compatibility: "opencode. Targets the ai_motor_control repository (Next.js + Vitest + Playwright)."
 metadata:
   project: ai_motor_control
-  repo_path: /home/zh180/ai_motor_control
+  repo_path: .
 ---
 
 # AI Coding 管控协议 — ai_motor_control
 
 这是一个**流程约束技能**,不是编码技能。它不让 AI 写得更快,而是让 AI **在动代码之前必须先讲清逻辑、拿到批准、并守住模块边界**。
 
-**适用范围**:`ai_motor_control` 仓库(`/home/zh180/ai_motor_control`,MOTOTUNE web 分支,Next.js 15 + Web Serial + LLM)。
+**适用范围**:`ai_motor_control` 仓库(MOTOTUNE web 分支,Next.js 15 + Web Serial + LLM)。
 
 **生效时机**:本技能在**任何写操作之前**生效。只读调查**不受限**。
 
@@ -28,7 +28,7 @@ metadata:
 | **H4** | **功能必有测试** | 没有对应测试的改动不算完成(见 §4 测试矩阵)。 |
 | **H5** | **干涉先报告** | 若完成 A 功能时会牵动 B 功能的文件 / 行为 / 接口 → **先出《干涉报告》,批准后才动**。未批准前**不得**改 B 的任何代码或文件。 |
 | **H6** | **不破基线** | `docs/TESTING.md` 的用例必须全部仍通过。**禁止删除 / skip 失败测试**来"通过"。 |
-| **H7** | **安全约束** | 转速上限 6000 RPM(clamp)、默认波特率 `781250`、API key 只走 `.env.local` / 设置面板**不得写进代码**。这些不可改动。 |
+| **H7** | **安全约束** | 转速上限 6000 RPM(clamp)、默认波特率 `115200`、API key 只走 `.env.local` / 设置面板**不得写进代码**。这些不可改动。 |
 | **H8** | **只读先行** | 提案前必须先读相关代码/文档,**不许凭空猜**。未读过的代码不臆测。 |
 
 > 违反 H1/H5 是**最严重**的错误。宁可停下来问,也不要"顺手改一下"。
@@ -58,14 +58,14 @@ metadata:
 ## 2. 侦察清单(提案前必做)
 
 ```bash
-cd /home/zh180/ai_motor_control
+cd "$(git rev-parse --show-toplevel)"
 git status && git branch --show-current
 git log --oneline -10
 ```
 
 - 读根 `AGENTS.md`(架构/数据流/协议/组件约束)
 - 按改动域读 `lib/AGENTS.md` 或 `components/AGENTS.md`
-- 读 `docs/TESTING.md`(测试基线)、`docs/modbus_rtu_protocol.md`(涉及协议时)
+- 读 `docs/TESTING.md`(测试基线)、`docs/aimotor_protocol.md`(涉及串口协议时)、`docs/tekhsi.md`(涉及网口示波器时)
 - 找到**现有同类实现**,新代码必须沿用其模式(不另起风格)
 
 ---
@@ -182,27 +182,27 @@ git log --oneline -10
 
 | 功能模块 | 归属文件 | 必配测试 | 说明 |
 |---|---|---|---|
-| Modbus 协议层 | `lib/serial/modbus.ts` | `unit/modbus.spec.ts` | CRC / 帧 / float32 / 地址表,纯逻辑单测 |
-| 串口适配 / 轮询 | `lib/serial/motorController.ts` | `e2e/serial-scope.spec.ts`(mock) | 事务队列 / 50ms 遥测 / readWaveFrame |
-| 桥接 | `lib/serial/bridge.ts` | 单测或 e2e | BridgePort 握手 READY |
+| AI-Motor 协议层 | `lib/serial/aimotor/{protocol,params}.ts` | `unit/aimotorProtocol.spec.ts` / `unit/aimotorParams.spec.ts` | 帧/CRC/参数/安全锁,纯逻辑单测 |
+| 串口适配 / 轮询 | `lib/serial/aimotor/controller.ts` | `e2e/serial-recovery.spec.ts` / `e2e/serial-scope.spec.ts` | HELLO/心跳/ACK 重试/100Hz 遥测 |
+| TekHSI 网口 | `lib/tekhsi/{client,decode}.ts` | `unit/tekhsiClient.spec.ts` / `unit/tekhsiDecode.spec.ts` / `e2e/tekhsi-api.spec.ts` | gRPC 时序/解码/路由 |
 | 事件总线 | `lib/bus.ts` + `lib/types.ts` | `unit/*.spec.ts` | 新增 bus 类型须同步 types |
 | LLM 客户端 | `lib/llm/llmClient.ts` | `unit/llmClient.spec.ts` | SSE 解析 / abort / 无条件 turn_end |
 | LLM 工具 / 提示词 | `lib/llm/tools.ts` | 单测 + `e2e/tool-call.spec.ts` | 前后端共用,改动影响面大 |
 | 会话 store | `lib/stores/sessionStore.ts` | `unit/sessionStore.spec.ts` | localStorage `mototune.sessions` |
-| 电机 store | `lib/stores/motorStore.ts` | **`unit/motorStore.spec.ts`(缺则补)** | applyEvent→状态 |
-| 命令锁 | `lib/stores/commandLockStore.ts` | **`unit/commandLockStore.spec.ts`(缺则补)** | idle→pending→executing→idle |
-| 示波器 store | `lib/stores/scopeStore.ts` | `unit/scopeStore.spec.ts` | applyFrame / 通道配置 |
+| 电机 store | `lib/stores/motorStore.ts` | `unit/aimotorStore.spec.ts` | applyEvent→状态 |
+| 命令锁 | `lib/stores/commandLockStore.ts` | `unit/commandLockStore.spec.ts` | idle→pending→executing→idle |
+| 示波器 store | `lib/stores/scopeStore.ts` | `unit/scopeStore.spec.ts` | appendAiSample / 通道配置 |
 | 设置 / i18n | `lib/settings.ts` + `lib/i18n.ts` | `e2e/settings-search.spec.ts` | zh/en 必须同步 |
 | 聊天 UI | `components/chat/*` | `e2e/chat.spec.ts`、`e2e/tool-call.spec.ts` | 仅经 store/bus 取数 |
 | 示波器 UI | `components/scope/*` | `e2e/serial-scope.spec.ts` | SVG path 波形 / 暂停 |
-| 页面 / 代理 | `app/**`、`app/api/llm/route.ts` | e2e / 手动验证 | 纯客户端渲染,禁止 SSR |
+| 页面 / 代理 | `app/**`、`app/api/{llm,tekhsi}/route.ts` | e2e / 手动验证 | 页面客户端渲染;服务端仅 Node API 路由 |
 | 报告 / 统计 | `lib/report.ts` + `lib/stats.ts` | `unit/*.spec.ts` | 纯函数 |
 
 ### 测试命令
 
 ```bash
 npm run test:unit                       # 全部单测
-npx vitest run unit/modbus.spec.ts      # 单文件
+npx vitest run unit/aimotorProtocol.spec.ts      # 单文件
 npm run test:e2e                        # 全部 E2E(自动起 3100 端口)
 npx playwright test e2e/app.spec.ts -g "折叠"   # 单用例
 npm run test:all                        # 全量,交付前必跑
@@ -236,7 +236,7 @@ npm run test:all                        # 全量,交付前必跑
 1. **只改提案列出的文件**。多改一个文件 = 违反 H5。
 2. **只做提案描述的改动**。不重构、不美化、不"顺手优化"(bug 修复尤其:最小修复,绝不顺带重构)。
 3. **沿用既有模式**:命名、目录、store/bus 用法、样式 token 都跟现有代码一致。
-4. **不绕过架构**:组件↔组件只经 store;串口只走 `motorController`;跨页导航用 `next/link`;不新增 SSR 依赖。
+4. **不绕过架构**:组件↔组件只经 store;串口只走 `lib/serial/aimotor/controller`;跨页导航用 `next/link`;页面不新增 SSR 依赖(服务端仅 Node API 路由)。
 5. **不引入新依赖**,除非提案里说明并获批。
 6. **不留垃圾**:无 `console.log` 调试残留、无注释掉的死代码、无 TODO 占位交付。
 7. **不抑制类型错误**:禁止 `as any` / `@ts-ignore` / `@ts-expect-error`。
@@ -271,7 +271,7 @@ npm run test:all                        # 全量,交付前必跑
 - ❌ 删除 / skip / 注释掉失败测试来"变绿"。
 - ❌ bug 修复时顺带重构别处代码。
 - ❌ 为了跑通而绕过架构(直接 `navigator.serial`、组件直连 store 内部、`<a href>` 跨页)。
-- ❌ 把 API key / 密钥写进代码;改动 6000 RPM clamp 或 `781250` 波特率。
+- ❌ 把 API key / 密钥写进代码;改动 6000 RPM clamp 或 `115200` 波特率。
 - ❌ 不读代码就臆测(违反 H8);改完不做验证就报完成。
 - ❌ 用"我认为这样可以"代替"我提案并等你批准"。
 

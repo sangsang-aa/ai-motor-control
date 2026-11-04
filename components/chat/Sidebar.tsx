@@ -145,8 +145,8 @@ export const Sidebar: React.FC<Props> = ({ onOpenSettings, onOpenSearch }) => {
         </div>
 
         <div className="sb-user">
-          <span className="avatar">s</span>
-          <span className="uname">sangsang</span>
+          <span className="avatar">U</span>
+          <span className="uname">{t(lang, 'userLabel')}</span>
         </div>
       </aside>
       <div style={{ width: 4, cursor: 'col-resize', flexShrink: 0, background: 'transparent' }} />
